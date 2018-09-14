@@ -36,7 +36,6 @@ load("@bazel_gazelle//:deps.bzl", "gazelle_dependencies")
 gazelle_dependencies()
 
 load("@io_bazel_rules_go//go:def.bzl", "go_download_sdk", "go_register_toolchains", "go_rules_dependencies")
-load("@io_bazel_rules_docker//docker:docker.bzl", "docker_pull", "docker_repositories")
 
 go_rules_dependencies()
 
