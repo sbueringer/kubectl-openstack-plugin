@@ -14,7 +14,7 @@ before_script:
 
 script:
 - bazel build //cmd:cmd
-- go test -race -coverprofile=coverage.txt -covermode=atomic
+#TODO enable again- go test -race -coverprofile=coverage.txt -covermode=atomic
 
 cache:
   directories:
