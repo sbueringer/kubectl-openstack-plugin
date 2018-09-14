@@ -5,19 +5,23 @@ dist: trusty
 
 language: go
 
+env:
+  global:
+  - BAZEL_VERSION="8.11.3"
+
 before_script:
-- make install-travis
+- wget "https://storage.googleapis.com/bazel-apt/pool/jdk1.8/b/bazel/bazel_${BAZEL_VERSION}_amd64.deb"
+- sudo dpkg --force-all -i bazel_${BAZEL_VERSION}_amd64.deb
+- sudo apt-get install moreutils -y
 
 script:
-- make ci
+- bazel build //cmd:cmd
+- go test -race -coverprofile=coverage.txt -covermode=atomic
 
 cache:
   directories:
   - $HOME/.bzrepos
 
-#script:
-#- bazel build //cmd:cmd
-#- go test -race -coverprofile=coverage.txt -covermode=atomic
 
 after_success:
 - bash <(curl -s https://codecov.io/bash)
