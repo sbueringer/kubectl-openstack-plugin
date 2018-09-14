@@ -7,12 +7,13 @@ import (
 	"k8s.io/client-go/tools/clientcmd/api"
 
 	"fmt"
+	"strings"
+
 	"github.com/gophercloud/gophercloud/openstack/networking/v2/extensions/layer3/floatingips"
 	"github.com/gophercloud/gophercloud/openstack/networking/v2/extensions/lbaas_v2/listeners"
 	"github.com/gophercloud/gophercloud/openstack/networking/v2/extensions/lbaas_v2/loadbalancers"
 	"github.com/gophercloud/gophercloud/openstack/networking/v2/extensions/lbaas_v2/monitors"
 	"github.com/gophercloud/gophercloud/openstack/networking/v2/extensions/lbaas_v2/pools"
-	"strings"
 )
 
 //TODO
@@ -110,7 +111,7 @@ func (o *LBOptions) Run() error {
 
 	output, err := getPrettyLBList(servicesMap, loadBalancersMap, listenersMap, poolsMap, membersMap, monitorsMap, floatingipsMap)
 	if err != nil {
-		return fmt.Errorf("error creating ouput: %v", err)
+		return fmt.Errorf("error creating output: %v", err)
 	}
 	fmt.Printf(output)
 

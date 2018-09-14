@@ -8,6 +8,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd/api"
 
 	"fmt"
+
 	"k8s.io/apimachinery/pkg/api/resource"
 )
 
@@ -106,7 +107,7 @@ func (o *ServerOptions) Run() error {
 
 	output, err := getPrettyServerList(nodesMap, serversMap)
 	if err != nil {
-		return fmt.Errorf("error creating ouput: %v", err)
+		return fmt.Errorf("error creating output: %v", err)
 	}
 	fmt.Printf(output)
 

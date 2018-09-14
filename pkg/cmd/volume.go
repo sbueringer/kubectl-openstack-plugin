@@ -112,7 +112,7 @@ func (o *VolumesOptions) Run() error {
 
 	output, err := getPrettyVolumeList(pvMap, volumesMap, serversMap)
 	if err != nil {
-		return fmt.Errorf("error creating ouput: %v", err)
+		return fmt.Errorf("error creating output: %v", err)
 	}
 	fmt.Printf(output)
 
