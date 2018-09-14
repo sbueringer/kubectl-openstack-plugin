@@ -1,0 +1,29 @@
+sudo: false
+dist: trusty
+
+language: go
+
+before_install:
+- env
+
+before_script:
+- env
+
+script:
+- bazel build //cmd:cmd
+- go test -race -coverprofile=coverage.txt -covermode=atomic
+
+after_success:
+- bash <(curl -s https://codecov.io/bash)
+
+before_deploy:
+- cp bazel-bin/cmd/linux_amd64_pure_stripped/cmd /tmp/kubectl-os
+
+deploy:
+- provider: releases
+  api_key: $GITHUB_RELEASE_TOKEN
+  file: /tmp/kubectl-os
+  overwrite: true
+  skip_cleanup: true
+  on:
+    tags: true
