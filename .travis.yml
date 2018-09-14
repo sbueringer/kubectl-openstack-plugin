@@ -7,7 +7,7 @@ language: go
 
 env:
   global:
-  - BAZEL_VERSION="8.11.3"
+  - BAZEL_VERSION="0.16.1"
 
 before_script:
 - wget "https://storage.googleapis.com/bazel-apt/pool/jdk1.8/b/bazel/bazel_${BAZEL_VERSION}_amd64.deb"
