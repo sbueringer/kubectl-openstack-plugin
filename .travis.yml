@@ -13,7 +13,7 @@ before_script:
 - sudo apt-get install moreutils -y
 
 script:
-- bazel build //cmd:cmd
+- bazel build //cmd/kubectl-os:kubectl-os
 #TODO enable again- go test -race -coverprofile=coverage.txt -covermode=atomic
 
 cache:

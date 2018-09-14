@@ -8,4 +8,4 @@ then
 fi
 
 bazel run //:gazelle
-bazel run //cmd:cmd -- "$@"
+bazel run //cmd/kubectl-os:kubectl-os -- "$@"
