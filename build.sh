@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Kubectl 1.12
-sudo cp ./run.sh /usr/local/bin/kubectl-os
+sudo cp ./run.sh /usr/local/bin/kubectl-os-dev
 
 #go build cmd/kubectl-os.go
 #sudo mv kubectl-os /usr/local/bin/kubectl-os

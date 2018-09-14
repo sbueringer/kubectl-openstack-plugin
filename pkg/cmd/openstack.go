@@ -2,6 +2,10 @@ package cmd
 
 import (
 	"fmt"
+	"io/ioutil"
+	"os"
+	"strings"
+
 	"github.com/gophercloud/gophercloud"
 	"github.com/gophercloud/gophercloud/openstack"
 	"github.com/gophercloud/gophercloud/openstack/blockstorage/v3/volumes"
@@ -12,10 +16,7 @@ import (
 	"github.com/gophercloud/gophercloud/openstack/networking/v2/extensions/lbaas_v2/monitors"
 	"github.com/gophercloud/gophercloud/openstack/networking/v2/extensions/lbaas_v2/pools"
 	"gopkg.in/yaml.v2"
-	"io/ioutil"
 	"k8s.io/client-go/tools/clientcmd/api"
-	"os"
-	"strings"
 )
 
 func getVolumes(osProvider *gophercloud.ProviderClient) (map[string]volumes.Volume, error) {
