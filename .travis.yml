@@ -3,8 +3,6 @@ go_import_path: github.com/sbueringer/kubectl-openstack-plugin
 sudo: required
 dist: trusty
 
-language: go
-
 env:
   global:
   - BAZEL_VERSION="0.16.1"
