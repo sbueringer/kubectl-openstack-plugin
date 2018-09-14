@@ -1,21 +1,21 @@
 package cmd
 
 import (
-	"github.com/gophercloud/gophercloud/openstack/blockstorage/v3/volumes"
-	"github.com/gophercloud/gophercloud/openstack"
-	"github.com/gophercloud/gophercloud"
-	"github.com/gophercloud/gophercloud/openstack/compute/v2/servers"
 	"fmt"
-	"github.com/gophercloud/gophercloud/openstack/networking/v2/extensions/lbaas_v2/loadbalancers"
-	"github.com/gophercloud/gophercloud/openstack/networking/v2/extensions/lbaas_v2/listeners"
-	"github.com/gophercloud/gophercloud/openstack/networking/v2/extensions/lbaas_v2/pools"
-	"github.com/gophercloud/gophercloud/openstack/networking/v2/extensions/lbaas_v2/monitors"
+	"github.com/gophercloud/gophercloud"
+	"github.com/gophercloud/gophercloud/openstack"
+	"github.com/gophercloud/gophercloud/openstack/blockstorage/v3/volumes"
+	"github.com/gophercloud/gophercloud/openstack/compute/v2/servers"
 	"github.com/gophercloud/gophercloud/openstack/networking/v2/extensions/layer3/floatingips"
-	"k8s.io/client-go/tools/clientcmd/api"
-	"strings"
-	"os"
+	"github.com/gophercloud/gophercloud/openstack/networking/v2/extensions/lbaas_v2/listeners"
+	"github.com/gophercloud/gophercloud/openstack/networking/v2/extensions/lbaas_v2/loadbalancers"
+	"github.com/gophercloud/gophercloud/openstack/networking/v2/extensions/lbaas_v2/monitors"
+	"github.com/gophercloud/gophercloud/openstack/networking/v2/extensions/lbaas_v2/pools"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
+	"k8s.io/client-go/tools/clientcmd/api"
+	"os"
+	"strings"
 )
 
 func getVolumes(osProvider *gophercloud.ProviderClient) (map[string]volumes.Volume, error) {
@@ -53,7 +53,7 @@ func getServer(osProvider *gophercloud.ProviderClient) (map[string]servers.Serve
 	}
 	serverMap := map[string]servers.Server{}
 	for _, srv := range srvs {
-		serverMap [srv.ID] = srv
+		serverMap[srv.ID] = srv
 	}
 	return serverMap, nil
 }

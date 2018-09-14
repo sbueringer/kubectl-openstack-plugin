@@ -2,10 +2,10 @@ package cmd
 
 import (
 	"bytes"
-	"text/tabwriter"
-	"sort"
 	"fmt"
+	"sort"
 	"strings"
+	"text/tabwriter"
 )
 
 type table struct {

@@ -1,11 +1,11 @@
 package cmd
 
 import (
+	"github.com/gophercloud/gophercloud/openstack/compute/v2/servers"
+	"github.com/spf13/cobra"
+	"k8s.io/api/core/v1"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/tools/clientcmd/api"
-	"github.com/spf13/cobra"
-	"github.com/gophercloud/gophercloud/openstack/compute/v2/servers"
-	"k8s.io/api/core/v1"
 
 	"fmt"
 	"k8s.io/apimachinery/pkg/api/resource"

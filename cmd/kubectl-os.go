@@ -3,8 +3,8 @@ package main
 import (
 	"os"
 
-		"k8s.io/cli-runtime/pkg/genericclioptions"
 	"github.com/sbueringer/kubectl-openstack-plugin/pkg/cmd"
+	"k8s.io/cli-runtime/pkg/genericclioptions"
 )
 
 func main() {

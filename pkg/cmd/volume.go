@@ -1,12 +1,12 @@
 package cmd
 
 import (
-	"k8s.io/cli-runtime/pkg/genericclioptions"
-	"k8s.io/client-go/tools/clientcmd/api"
-	"github.com/spf13/cobra"
 	"github.com/gophercloud/gophercloud/openstack/blockstorage/v3/volumes"
 	"github.com/gophercloud/gophercloud/openstack/compute/v2/servers"
+	"github.com/spf13/cobra"
 	"k8s.io/api/core/v1"
+	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"k8s.io/client-go/tools/clientcmd/api"
 
 	"fmt"
 	"strings"
@@ -138,7 +138,7 @@ func getPrettyVolumeList(pvs map[string]v1.PersistentVolume, volumes map[string]
 			pvClaim = fmt.Sprintf("%s/%s", pv.Spec.ClaimRef.Namespace, pv.Spec.ClaimRef.Name)
 
 		}
-		lines = append(lines, []string{pvClaim, pvName, v.ID, strings.Join(attachServers, " "), v.Status,})
+		lines = append(lines, []string{pvClaim, pvName, v.ID, strings.Join(attachServers, " "), v.Status})
 	}
 	return printTable(table{header, lines, 0})
 }
