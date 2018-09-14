@@ -1,17 +1,23 @@
-sudo: false
+go_import_path: github.com/sbueringer/kubectl-openstack-plugin
+
+sudo: required
 dist: trusty
 
 language: go
 
-before_install:
-- env
-
 before_script:
-- env
+- make install-travis
 
 script:
-- bazel build //cmd:cmd
-- go test -race -coverprofile=coverage.txt -covermode=atomic
+- make ci
+
+cache:
+  directories:
+  - $HOME/.bzrepos
+
+#script:
+#- bazel build //cmd:cmd
+#- go test -race -coverprofile=coverage.txt -covermode=atomic
 
 after_success:
 - bash <(curl -s https://codecov.io/bash)
