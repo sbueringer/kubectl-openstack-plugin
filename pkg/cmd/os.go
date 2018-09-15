@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+
 	"github.com/spf13/cobra"
 
 	"k8s.io/cli-runtime/pkg/genericclioptions"
@@ -24,5 +25,6 @@ func NewCmdOpenStack(streams genericclioptions.IOStreams) *cobra.Command {
 	cmd.AddCommand(NewCmdLB(streams))
 	cmd.AddCommand(NewCmdServer(streams))
 	cmd.AddCommand(NewCmdVolumes(streams))
+	cmd.AddCommand(NewCmdImportConfig(streams))
 	return cmd
 }

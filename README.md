@@ -49,6 +49,7 @@ clouds:
 ````
 
 *Note*: The cloud/project_name is automatically discovered from the current kube context. E.g. a kube context named `i01p015-cluster-admin` leads to a cloud/project_name of `i01p015`. 
+*Note*: The clouds.yaml file can be created from `.rc` files via the `import-config` sub command.
 
 # Usage
 

@@ -26,7 +26,7 @@ type ServerOptions struct {
 var (
 	serverExample = `
 	# list server
-	%[1] server
+	%[1]s server
 `
 )
 

@@ -30,7 +30,7 @@ type LBOptions struct {
 var (
 	lbExample = `
 	# list lb
-	%[1] lb
+	%[1]s lb
 `
 )
 

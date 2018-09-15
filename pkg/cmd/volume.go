@@ -26,7 +26,7 @@ type VolumesOptions struct {
 var (
 	volumesExample = `
 	# list volumes
-	%[1] volumes
+	%[1]s volumes
 `
 )
 
