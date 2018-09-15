@@ -25,7 +25,7 @@ after_success:
 - bash <(curl -s https://codecov.io/bash)
 
 before_deploy:
-- cp bazel-bin/cmd/linux_amd64_pure_stripped/cmd /tmp/kubectl-os
+- cp bazel-bin/cmd/kubectl-os/linux_amd64_pure_stripped/kubectl-os /tmp/kubectl-os
 
 deploy:
 - provider: releases

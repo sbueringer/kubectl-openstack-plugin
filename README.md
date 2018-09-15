@@ -7,6 +7,10 @@ based on [k8s.io/sample-cli-plugin](https://github.com/kubernetes/kubernetes/tre
 
 # Installation 
 
+## Prerequisites
+
+* Afaik kubectl plugins without plugin.yaml only work with kubectl >=1.12
+
 ## Installation via go get
 
 Just execute the following and make sure `$GOPATH/bin` is in your `$PATH`:
@@ -90,7 +94,3 @@ internal              59.1.0.14     10.12.4.5    443 => [10.12.4.17 10.12.4.7 10
 
 * enable output via go template like json path (from both openstack & kube object)
 * unit tests
-
-# Known Issues
-
-* Plugins without plugin.yaml afaik only work with kubectl >1.12
