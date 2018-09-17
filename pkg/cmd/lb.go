@@ -88,7 +88,7 @@ func (o *LBOptions) Validate() error {
 // Run lists all volumes
 func (o *LBOptions) Run() error {
 
-	fmt.Printf("%t\n", o.list)
+	//fmt.Printf("%t\n", o.list)
 
 	kubeClient, err := getKubeClient(o.configFlags)
 	if err != nil {

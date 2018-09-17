@@ -7,5 +7,5 @@ then
     env | grep KUBE
 fi
 
-bazel run //:gazelle
+bazel run //:gazelle &>/dev/null
 bazel run //cmd/kubectl-os:kubectl-os -- "$@"

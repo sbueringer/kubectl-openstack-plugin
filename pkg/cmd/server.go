@@ -84,7 +84,7 @@ func (o *ServerOptions) Validate() error {
 // Run lists all volumes
 func (o *ServerOptions) Run() error {
 
-	fmt.Printf("%t\n", o.list)
+	//fmt.Printf("%t\n", o.list)
 
 	kubeClient, err := getKubeClient(o.configFlags)
 	if err != nil {
@@ -145,7 +145,7 @@ func getPrettyServerList(nodes map[string]v1.Node, server map[string]servers.Ser
 			containerRuntimeVersion = node.Status.NodeInfo.ContainerRuntimeVersion
 			dhcVersion = node.Labels["dhc-version"]
 			cpu = node.Status.Capacity.Cpu().String()
-			ram = fmt.Sprintf("%dG", node.Status.Capacity.Memory().ScaledValue(resource.Giga))
+			ram = fmt.Sprintf("%dG", node.Status.Capacity.Memory().ScaledValue(resource.Mega))
 			for _, addr := range node.Status.Addresses {
 				if addr.Type == v1.NodeInternalIP {
 					ip = addr.Address

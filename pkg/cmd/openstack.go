@@ -241,10 +241,13 @@ func getAuthOptionsFromConfig(configFile, context string) (*gophercloud.AuthOpti
 	if !ok {
 		return nil, fmt.Errorf("could not find auth_url in cloud %s in config file %s", context, configFile)
 	}
-	projectName, ok := authYAML["project_name"]
-	if !ok {
-		return nil, fmt.Errorf("could not find project_name in cloud %s in config file %s", context, configFile)
+
+	projectName, _ := authYAML["project_name"]
+	projectID, _ := authYAML["project_id"]
+	if projectName == "" && projectID == "" {
+		return nil, fmt.Errorf("could not find project_name or project_id in cloud %s in config file %s", context, configFile)
 	}
+
 	username, ok := authYAML["username"]
 	if !ok {
 		return nil, fmt.Errorf("could not find username in cloud %s in config file %s", context, configFile)
@@ -253,5 +256,17 @@ func getAuthOptionsFromConfig(configFile, context string) (*gophercloud.AuthOpti
 	if !ok {
 		return nil, fmt.Errorf("could not find password in cloud %s in config file %s", context, configFile)
 	}
-	return &gophercloud.AuthOptions{IdentityEndpoint: authUrl, TenantName: projectName, Username: username, Password: password}, nil
+	domainName, _ := authYAML["domain_name"]
+
+	options := gophercloud.AuthOptions{IdentityEndpoint: authUrl, Username: username, Password: password}
+	if projectName != "" {
+		options.TenantName = projectName
+	}
+	if projectID != "" {
+		options.TenantID = projectID
+	}
+	if domainName != "" {
+		options.DomainName = domainName
+	}
+	return &options, nil
 }

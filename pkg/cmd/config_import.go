@@ -81,15 +81,19 @@ func (o *ImportConfigOptions) Run() error {
 		return fmt.Errorf("error reading dir %s: %v", o.fromDir, err)
 	}
 
-	usernameRegEx := regexp.MustCompile("OS_USERNAME='(.*)'")
-	passwordRegEx := regexp.MustCompile("OS_PASSWORD='(.*)'")
+	usernameRegEx := regexp.MustCompile("OS_USERNAME=['\"](.*)['\"]")
+	passwordRegEx := regexp.MustCompile("OS_PASSWORD=['\"](.*)['\"]")
+	userDomainRegEx := regexp.MustCompile("OS_USER_DOMAIN_NAME=['\"](.*)['\"]")
 	tenantNameRegEx := regexp.MustCompile("OS_TENANT_NAME=['\"](.*)['\"]")
-	authUrlRegEx := regexp.MustCompile("OS_AUTH_URL='(.*)'")
+	projectIDRegEx := regexp.MustCompile("OS_PROJECT_ID=['\"](.*)['\"]")
+	authUrlRegEx := regexp.MustCompile("OS_AUTH_URL=['\"](.*)['\"]")
 
 	clouds := clouds{}
 	clouds.Clouds = map[string]cloud{}
 	for _, f := range files {
 		if strings.HasSuffix(f.Name(), ".creds") {
+
+			context := strings.TrimSuffix(f.Name(), ".creds")
 
 			fmt.Printf("Importing config from: %q\n", f.Name())
 
@@ -100,29 +104,42 @@ func (o *ImportConfigOptions) Run() error {
 
 			usernameMatch := usernameRegEx.FindSubmatch(content)
 			passwordMatch := passwordRegEx.FindSubmatch(content)
+			userDomainMatch := userDomainRegEx.FindSubmatch(content)
 			tenantNameMatch := tenantNameRegEx.FindSubmatch(content)
+			projectIDMatch := projectIDRegEx.FindSubmatch(content)
 			authUrlMatch := authUrlRegEx.FindSubmatch(content)
 
-			if len(usernameMatch) < 1 {
+			if len(usernameMatch) != 2 {
 				return fmt.Errorf("error matching username regex")
 			}
-			if len(passwordMatch) < 1 {
-				return fmt.Errorf("error matching username regex")
+			if len(passwordMatch) != 2 {
+				return fmt.Errorf("error matching password regex")
 			}
-			if len(tenantNameMatch) < 1 {
-				return fmt.Errorf("error matching username regex")
+			if len(tenantNameMatch) != 2 && len(projectIDMatch) != 2 {
+				return fmt.Errorf("error matching tenantName or projectID regex")
 			}
-			if len(authUrlMatch) < 1 {
-				return fmt.Errorf("error matching username regex")
+			if len(authUrlMatch) != 2 {
+				return fmt.Errorf("error matching authUrl regex")
 			}
 
-			clouds.Clouds[string(tenantNameMatch[1])] = cloud{
-				Auth: cloudAuth{
-					Username:    string(usernameMatch[1]),
-					Password:    string(passwordMatch[1]),
-					ProjectName: string(tenantNameMatch[1]),
-					AuthUrl:     string(authUrlMatch[1]),
-				},
+			auth := cloudAuth{
+				Username: string(usernameMatch[1]),
+				Password: string(passwordMatch[1]),
+				AuthUrl:  string(authUrlMatch[1]),
+			}
+
+			if len(tenantNameMatch) == 2 {
+				auth.ProjectName = string(tenantNameMatch[1])
+			}
+			if len(projectIDMatch) == 2 {
+				auth.ProjectID = string(projectIDMatch[1])
+			}
+			if len(userDomainMatch) == 2 {
+				auth.DomainName = string(userDomainMatch[1])
+			}
+
+			clouds.Clouds[string(context)] = cloud{
+				Auth: auth,
 			}
 		}
 	}
@@ -149,8 +166,10 @@ type cloud struct {
 }
 
 type cloudAuth struct {
-	AuthUrl     string `yaml:"auth_url"`
-	ProjectName string `yaml:"project_name"`
 	Username    string `yaml:"username"`
 	Password    string `yaml:"password"`
+	DomainName  string `yaml:"domain_name"`
+	AuthUrl     string `yaml:"auth_url"`
+	ProjectName string `yaml:"project_name"`
+	ProjectID   string `yaml:"project_id"`
 }
