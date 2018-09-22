@@ -149,16 +149,16 @@ func getLB(osProvider *gophercloud.ProviderClient) (map[string]loadbalancers.Loa
 	return loadBalancersMap, listenersMap, poolsMap, membersMap, monitorsMap, floatingipsMap, nil
 }
 
-func getOpenStackClient(rawConfig api.Config) (*gophercloud.ProviderClient, error) {
-	providerClient, err := createOpenStackProviderClient(rawConfig)
+func getOpenStackClient(rawConfig api.Config) (*gophercloud.ProviderClient, string, error) {
+	providerClient, tenantID, err := createOpenStackProviderClient(rawConfig)
 	if err != nil {
-		return nil, fmt.Errorf("error creating openstack client: %v", err)
+		return nil, tenantID, fmt.Errorf("error creating openstack client: %v", err)
 	}
 
-	return providerClient, nil
+	return providerClient, tenantID, nil
 }
 
-func createOpenStackProviderClient(rawConfig api.Config) (*gophercloud.ProviderClient, error) {
+func createOpenStackProviderClient(rawConfig api.Config) (*gophercloud.ProviderClient, string, error) {
 
 	context := rawConfig.CurrentContext
 	tenantID := strings.Split(context, "-")[0]
@@ -167,16 +167,18 @@ func createOpenStackProviderClient(rawConfig api.Config) (*gophercloud.ProviderC
 	if openstackConfigFile != "" {
 		authOptions, err := getAuthOptionsFromConfig(openstackConfigFile, tenantID)
 		if err != nil {
-			return nil, fmt.Errorf("error getting auth options from config file %s: %v", openstackConfigFile, err)
+			return nil, tenantID, fmt.Errorf("error getting auth options from config file %s: %v", openstackConfigFile, err)
 		}
-		return openstack.AuthenticatedClient(*authOptions)
+		osProvider, err := openstack.AuthenticatedClient(*authOptions)
+		return osProvider, tenantID, err
 	}
 
 	authOptions, err := getAuthOptionsFromEnv()
 	if err != nil {
-		return nil, fmt.Errorf("error getting auth options from env variables: %v", err)
+		return nil, tenantID, fmt.Errorf("error getting auth options from env variables: %v", err)
 	}
-	return openstack.AuthenticatedClient(*authOptions)
+	osProvider, err := openstack.AuthenticatedClient(*authOptions)
+	return osProvider, tenantID, err
 }
 
 func getAuthOptionsFromEnv() (*gophercloud.AuthOptions, error) {

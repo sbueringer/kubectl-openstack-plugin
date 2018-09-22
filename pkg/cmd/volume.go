@@ -10,6 +10,8 @@ import (
 
 	"fmt"
 	"strings"
+
+	"github.com/sbueringer/kubectl-openstack-plugin/pkg/output/mattermost"
 )
 
 //TODO
@@ -17,8 +19,10 @@ type VolumesOptions struct {
 	configFlags *genericclioptions.ConfigFlags
 	rawConfig   api.Config
 	//TODO decide what todo with list
-	list bool
-	args []string
+	list     bool
+	exporter string
+	output   string
+	args     []string
 
 	genericclioptions.IOStreams
 }
@@ -56,6 +60,8 @@ func NewCmdVolumes(streams genericclioptions.IOStreams) *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&o.list, "list", o.list, "if true, list")
+	cmd.Flags().StringVarP(&o.exporter, "exporter", "e", "stdout", "stdout, mm or multiple (comma-separated)")
+	cmd.Flags().StringVarP(&o.output, "output", "o", "markdown", "markdown or raw")
 	o.configFlags.AddFlags(cmd.Flags())
 	return cmd
 }
@@ -90,7 +96,7 @@ func (o *VolumesOptions) Run() error {
 	if err != nil {
 		return fmt.Errorf("error creating client: %v", err)
 	}
-	osProvider, err := getOpenStackClient(o.rawConfig)
+	osProvider, tenantID, err := getOpenStackClient(o.rawConfig)
 	if err != nil {
 		return fmt.Errorf("error creating client: %v", err)
 	}
@@ -110,16 +116,35 @@ func (o *VolumesOptions) Run() error {
 		return fmt.Errorf("error getting servers from OpenStack: %v", err)
 	}
 
-	output, err := getPrettyVolumeList(pvMap, volumesMap, serversMap)
+	output, err := getPrettyVolumeList(pvMap, volumesMap, serversMap, o.output)
 	if err != nil {
 		return fmt.Errorf("error creating output: %v", err)
 	}
-	fmt.Printf(output)
+
+	for _, exporter := range strings.Split(o.exporter, ",") {
+		switch exporter {
+		case "stdout":
+			{
+				fmt.Printf(output)
+			}
+		case "mm":
+			{
+				var msg string
+				switch o.output {
+				case "raw":
+					msg = fmt.Sprintf("Volumes for %s:\n\n````\n%s````\n", tenantID, output)
+				case "markdown":
+					msg = fmt.Sprintf("Volumes for %s:\n\n%s\n", tenantID, output)
+				}
+				mattermost.New().SendMessage(msg)
+			}
+		}
+	}
 
 	return nil
 }
 
-func getPrettyVolumeList(pvs map[string]v1.PersistentVolume, volumes map[string]volumes.Volume, server map[string]servers.Server) (string, error) {
+func getPrettyVolumeList(pvs map[string]v1.PersistentVolume, volumes map[string]volumes.Volume, server map[string]servers.Server, output string) (string, error) {
 
 	header := []string{"CLAIM", "PV_NAME", "CINDER_ID", "SERVERS", "STATUS"}
 
@@ -140,5 +165,5 @@ func getPrettyVolumeList(pvs map[string]v1.PersistentVolume, volumes map[string]
 		}
 		lines = append(lines, []string{pvClaim, pvName, v.ID, strings.Join(attachServers, " "), v.Status})
 	}
-	return printTable(table{header, lines, 0})
+	return convertToTable(table{header, lines, 0, output})
 }

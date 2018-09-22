@@ -14,6 +14,7 @@ import (
 	"github.com/gophercloud/gophercloud/openstack/networking/v2/extensions/lbaas_v2/loadbalancers"
 	"github.com/gophercloud/gophercloud/openstack/networking/v2/extensions/lbaas_v2/monitors"
 	"github.com/gophercloud/gophercloud/openstack/networking/v2/extensions/lbaas_v2/pools"
+	"github.com/sbueringer/kubectl-openstack-plugin/pkg/output/mattermost"
 )
 
 //TODO
@@ -21,8 +22,10 @@ type LBOptions struct {
 	configFlags *genericclioptions.ConfigFlags
 	rawConfig   api.Config
 	//TODO decide what todo with list
-	list bool
-	args []string
+	list     bool
+	exporter string
+	output   string
+	args     []string
 
 	genericclioptions.IOStreams
 }
@@ -60,6 +63,8 @@ func NewCmdLB(streams genericclioptions.IOStreams) *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&o.list, "list", o.list, "if true, list")
+	cmd.Flags().StringVarP(&o.exporter, "exporter", "e", "stdout", "stdout, mm or multiple (comma-separated)")
+	cmd.Flags().StringVarP(&o.output, "output", "o", "markdown", "markdown or raw")
 	o.configFlags.AddFlags(cmd.Flags())
 	return cmd
 }
@@ -94,7 +99,7 @@ func (o *LBOptions) Run() error {
 	if err != nil {
 		return fmt.Errorf("error creating client: %v", err)
 	}
-	osProvider, err := getOpenStackClient(o.rawConfig)
+	osProvider, tenantID, err := getOpenStackClient(o.rawConfig)
 	if err != nil {
 		return fmt.Errorf("error creating client: %v", err)
 	}
@@ -109,16 +114,35 @@ func (o *LBOptions) Run() error {
 		return fmt.Errorf("error getting servers from OpenStack: %v", err)
 	}
 
-	output, err := getPrettyLBList(servicesMap, loadBalancersMap, listenersMap, poolsMap, membersMap, monitorsMap, floatingipsMap)
+	output, err := getPrettyLBList(servicesMap, loadBalancersMap, listenersMap, poolsMap, membersMap, monitorsMap, floatingipsMap, o.output)
 	if err != nil {
 		return fmt.Errorf("error creating output: %v", err)
 	}
-	fmt.Printf(output)
+
+	for _, exporter := range strings.Split(o.exporter, ",") {
+		switch exporter {
+		case "stdout":
+			{
+				fmt.Printf(output)
+			}
+		case "mm":
+			{
+				var msg string
+				switch o.output {
+				case "raw":
+					msg = fmt.Sprintf("LBaaS for %s:\n\n````\n%s````\n", tenantID, output)
+				case "markdown":
+					msg = fmt.Sprintf("LBaaS for %s:\n\n%s\n", tenantID, output)
+				}
+				mattermost.New().SendMessage(msg)
+			}
+		}
+	}
 
 	return nil
 }
 
-func getPrettyLBList(services map[int32]v1.Service, loadbalancers map[string]loadbalancers.LoadBalancer, listeners map[string]listeners.Listener, pools map[string]pools.Pool, members map[string]pools.Member, monitors map[string]monitors.Monitor, floatingIPs map[string]floatingips.FloatingIP) (string, error) {
+func getPrettyLBList(services map[int32]v1.Service, loadbalancers map[string]loadbalancers.LoadBalancer, listeners map[string]listeners.Listener, pools map[string]pools.Pool, members map[string]pools.Member, monitors map[string]monitors.Monitor, floatingIPs map[string]floatingips.FloatingIP, output string) (string, error) {
 
 	header := []string{"NAME", "FLOATING_IPS", "VIP_ADDRESS", "PORTS", "SERVICES"}
 
@@ -155,11 +179,14 @@ func getPrettyLBList(services map[int32]v1.Service, loadbalancers map[string]loa
 			}
 			portMapping := fmt.Sprintf("%d => %s", l.ProtocolPort, strings.Join(targetsArray, ","))
 			svcs := strings.Join(svcsArray, ",")
+			if svcs == "" {
+				svcs = "-"
+			}
 
 			lines = append(lines, []string{lb.Name, floatingIPsString, lb.VipAddress, portMapping, svcs})
 		}
 	}
-	return printTable(table{header, lines, 0})
+	return convertToTable(table{header, lines, 0, output})
 }
 func getFloatingIPForLB(lb loadbalancers.LoadBalancer, floatingIPs map[string]floatingips.FloatingIP) []string {
 	var fips []string
