@@ -93,8 +93,9 @@ func (o *VolumesOptions) Run() error {
 	if *o.configFlags.Context == "" {
 		err := o.runWithConfig()
 		if err != nil {
-			fmt.Printf("Error listing server for %s: %v\n", o.rawConfig.CurrentContext, err)
+			return fmt.Errorf("error listing volumes for %s: %v\n", o.rawConfig.CurrentContext, err)
 		}
+		return nil
 	}
 
 	for context := range getMatchingContexts(o.rawConfig.Contexts, *o.configFlags.Context) {
