@@ -2,11 +2,14 @@ package cmd
 
 import (
 	"fmt"
+	"regexp"
+	"strings"
+
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/kubernetes"
-	"strings"
+	"k8s.io/client-go/tools/clientcmd/api"
 )
 
 func getKubeClient(flags *genericclioptions.ConfigFlags) (*kubernetes.Clientset, error) {
@@ -66,4 +69,20 @@ func getPersistentVolumes(kubeClient *kubernetes.Clientset) (map[string]v1.Persi
 		pvMap[pv.Spec.Cinder.VolumeID] = pv
 	}
 	return pvMap, nil
+}
+
+func getMatchingContexts(contexts map[string]*api.Context, contextRegexps string) map[string]bool {
+	matchingContexts := map[string]bool{}
+	for _, contextRegexp := range strings.Split(contextRegexps, ",") {
+		regex, err := regexp.Compile(contextRegexp)
+		if err != nil {
+			fmt.Printf("Regex %s does not compile: %v\n", contextRegexp, err)
+		}
+		for context := range contexts {
+			if regex.Match([]byte(context)) {
+				matchingContexts[context] = true
+			}
+		}
+	}
+	return matchingContexts
 }

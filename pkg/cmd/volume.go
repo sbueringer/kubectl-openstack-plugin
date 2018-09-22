@@ -19,6 +19,8 @@ type VolumesOptions struct {
 	configFlags *genericclioptions.ConfigFlags
 	rawConfig   api.Config
 
+	states string
+
 	exporter string
 	output   string
 	args     []string
@@ -58,6 +60,7 @@ func NewCmdVolumes(streams genericclioptions.IOStreams) *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().StringVar(&o.states, "states", "", "filter by states, default list all")
 	cmd.Flags().StringVarP(&o.exporter, "exporter", "e", "stdout", "stdout, mm or multiple (comma-separated)")
 	cmd.Flags().StringVarP(&o.output, "output", "o", "markdown", "markdown or raw")
 	o.configFlags.AddFlags(cmd.Flags())
@@ -87,7 +90,14 @@ func (o *VolumesOptions) Validate() error {
 
 // Run lists all volumes
 func (o *VolumesOptions) Run() error {
-	for _, context := range strings.Split(*o.configFlags.Context, ",") {
+	if *o.configFlags.Context == "" {
+		err := o.runWithConfig()
+		if err != nil {
+			fmt.Printf("Error listing server for %s: %v\n", o.rawConfig.CurrentContext, err)
+		}
+	}
+
+	for context := range getMatchingContexts(o.rawConfig.Contexts, *o.configFlags.Context) {
 		o.configFlags.Context = &context
 		err := o.runWithConfig()
 		if err != nil {
@@ -122,7 +132,7 @@ func (o *VolumesOptions) runWithConfig() error {
 		return fmt.Errorf("error getting servers from OpenStack: %v", err)
 	}
 
-	output, err := getPrettyVolumeList(pvMap, volumesMap, serversMap, o.output)
+	output, err := o.getPrettyVolumeList(pvMap, volumesMap, serversMap)
 	if err != nil {
 		return fmt.Errorf("error creating output: %v", err)
 	}
@@ -146,11 +156,10 @@ func (o *VolumesOptions) runWithConfig() error {
 			}
 		}
 	}
-
 	return nil
 }
 
-func getPrettyVolumeList(pvs map[string]v1.PersistentVolume, volumes map[string]volumes.Volume, server map[string]servers.Server, output string) (string, error) {
+func (o *VolumesOptions) getPrettyVolumeList(pvs map[string]v1.PersistentVolume, volumes map[string]volumes.Volume, server map[string]servers.Server) (string, error) {
 
 	header := []string{"CLAIM", "PV_NAME", "CINDER_ID", "SERVERS", "STATUS"}
 
@@ -169,7 +178,18 @@ func getPrettyVolumeList(pvs map[string]v1.PersistentVolume, volumes map[string]
 			pvClaim = fmt.Sprintf("%s/%s", pv.Spec.ClaimRef.Namespace, pv.Spec.ClaimRef.Name)
 
 		}
-		lines = append(lines, []string{pvClaim, pvName, v.ID, strings.Join(attachServers, " "), v.Status})
+
+		matchesStates := false
+		for _, state := range strings.Split(o.states, ",") {
+			if v.Status == state {
+				matchesStates = true
+				break
+			}
+		}
+
+		if matchesStates || o.states == "" {
+			lines = append(lines, []string{pvClaim, pvName, v.ID, strings.Join(attachServers, " "), v.Status})
+		}
 	}
-	return convertToTable(table{header, lines, 0, output})
+	return convertToTable(table{header, lines, 0, o.output})
 }

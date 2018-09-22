@@ -20,6 +20,8 @@ type ServerOptions struct {
 	configFlags *genericclioptions.ConfigFlags
 	rawConfig   api.Config
 
+	states string
+
 	exporter string
 	output   string
 	args     []string
@@ -59,6 +61,7 @@ func NewCmdServer(streams genericclioptions.IOStreams) *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().StringVar(&o.states, "states", "", "filter by states, default list all")
 	cmd.Flags().StringVarP(&o.exporter, "exporter", "e", "stdout", "stdout, mm or multiple (comma-separated)")
 	cmd.Flags().StringVarP(&o.output, "output", "o", "markdown", "markdown or raw")
 	o.configFlags.AddFlags(cmd.Flags())
@@ -88,7 +91,14 @@ func (o *ServerOptions) Validate() error {
 
 // Run lists all server
 func (o *ServerOptions) Run() error {
-	for _, context := range strings.Split(*o.configFlags.Context, ",") {
+	if *o.configFlags.Context == "" {
+		err := o.runWithConfig()
+		if err != nil {
+			fmt.Printf("Error listing server for %s: %v\n", o.rawConfig.CurrentContext, err)
+		}
+	}
+
+	for context := range getMatchingContexts(o.rawConfig.Contexts, *o.configFlags.Context) {
 		o.configFlags.Context = &context
 		err := o.runWithConfig()
 		if err != nil {
@@ -118,7 +128,7 @@ func (o *ServerOptions) runWithConfig() error {
 		return fmt.Errorf("error getting servers from OpenStack: %v", err)
 	}
 
-	output, err := getPrettyServerList(nodesMap, serversMap, o.output)
+	output, err := o.getPrettyServerList(nodesMap, serversMap)
 	if err != nil {
 		return fmt.Errorf("error creating output: %v", err)
 	}
@@ -145,7 +155,7 @@ func (o *ServerOptions) runWithConfig() error {
 	return nil
 }
 
-func getPrettyServerList(nodes map[string]v1.Node, server map[string]servers.Server, output string) (string, error) {
+func (o *ServerOptions) getPrettyServerList(nodes map[string]v1.Node, server map[string]servers.Server) (string, error) {
 
 	header := []string{"NODE_NAME", "STATUS", "KUBELET_VERSION", "KUBEPROXY_VERSION", "RUNTIME_VERSION", "DHC_VERSION", "SERVER_ID", "STATE", "CPU", "RAM", "IP"}
 
@@ -183,7 +193,18 @@ func getPrettyServerList(nodes map[string]v1.Node, server map[string]servers.Ser
 				}
 			}
 		}
-		lines = append(lines, []string{name, status, kubeletVersion, kubeProxyVersion, containerRuntimeVersion, dhcVersion, s.ID, s.Status, cpu, ram, ip})
+
+		matchesStates := false
+		for _, state := range strings.Split(o.states, ",") {
+			if s.Status == state {
+				matchesStates = true
+				break
+			}
+		}
+
+		if matchesStates || o.states == "" {
+			lines = append(lines, []string{name, status, kubeletVersion, kubeProxyVersion, containerRuntimeVersion, dhcVersion, s.ID, s.Status, cpu, ram, ip})
+		}
 	}
-	return convertToTable(table{header, lines, 0, output})
+	return convertToTable(table{header, lines, 0, o.output})
 }

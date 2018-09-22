@@ -88,9 +88,16 @@ func (o *LBOptions) Validate() error {
 	return nil
 }
 
-// Run lists all volumes
+// Run lists all loadbalancers
 func (o *LBOptions) Run() error {
-	for _, context := range strings.Split(*o.configFlags.Context, ",") {
+	if *o.configFlags.Context == "" {
+		err := o.runWithConfig()
+		if err != nil {
+			fmt.Printf("Error listing server for %s: %v\n", o.rawConfig.CurrentContext, err)
+		}
+	}
+
+	for context := range getMatchingContexts(o.rawConfig.Contexts, *o.configFlags.Context) {
 		o.configFlags.Context = &context
 		err := o.runWithConfig()
 		if err != nil {
@@ -120,7 +127,7 @@ func (o *LBOptions) runWithConfig() error {
 		return fmt.Errorf("error getting servers from OpenStack: %v", err)
 	}
 
-	output, err := getPrettyLBList(servicesMap, loadBalancersMap, listenersMap, poolsMap, membersMap, monitorsMap, floatingipsMap, o.output)
+	output, err := o.getPrettyLBList(servicesMap, loadBalancersMap, listenersMap, poolsMap, membersMap, monitorsMap, floatingipsMap)
 	if err != nil {
 		return fmt.Errorf("error creating output: %v", err)
 	}
@@ -144,11 +151,10 @@ func (o *LBOptions) runWithConfig() error {
 			}
 		}
 	}
-
 	return nil
 }
 
-func getPrettyLBList(services map[int32]v1.Service, loadbalancers map[string]loadbalancers.LoadBalancer, listeners map[string]listeners.Listener, pools map[string]pools.Pool, members map[string]pools.Member, monitors map[string]monitors.Monitor, floatingIPs map[string]floatingips.FloatingIP, output string) (string, error) {
+func (o *LBOptions) getPrettyLBList(services map[int32]v1.Service, loadbalancers map[string]loadbalancers.LoadBalancer, listeners map[string]listeners.Listener, pools map[string]pools.Pool, members map[string]pools.Member, monitors map[string]monitors.Monitor, floatingIPs map[string]floatingips.FloatingIP) (string, error) {
 
 	header := []string{"NAME", "FLOATING_IPS", "VIP_ADDRESS", "PORTS", "SERVICES"}
 
@@ -192,7 +198,7 @@ func getPrettyLBList(services map[int32]v1.Service, loadbalancers map[string]loa
 			lines = append(lines, []string{lb.Name, floatingIPsString, lb.VipAddress, portMapping, svcs})
 		}
 	}
-	return convertToTable(table{header, lines, 0, output})
+	return convertToTable(table{header, lines, 0, o.output})
 }
 func getFloatingIPForLB(lb loadbalancers.LoadBalancer, floatingIPs map[string]floatingips.FloatingIP) []string {
 	var fips []string
