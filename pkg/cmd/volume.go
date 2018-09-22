@@ -18,8 +18,7 @@ import (
 type VolumesOptions struct {
 	configFlags *genericclioptions.ConfigFlags
 	rawConfig   api.Config
-	//TODO decide what todo with list
-	list     bool
+
 	exporter string
 	output   string
 	args     []string
@@ -59,7 +58,6 @@ func NewCmdVolumes(streams genericclioptions.IOStreams) *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().BoolVar(&o.list, "list", o.list, "if true, list")
 	cmd.Flags().StringVarP(&o.exporter, "exporter", "e", "stdout", "stdout, mm or multiple (comma-separated)")
 	cmd.Flags().StringVarP(&o.output, "output", "o", "markdown", "markdown or raw")
 	o.configFlags.AddFlags(cmd.Flags())
@@ -89,14 +87,22 @@ func (o *VolumesOptions) Validate() error {
 
 // Run lists all volumes
 func (o *VolumesOptions) Run() error {
+	for _, context := range strings.Split(*o.configFlags.Context, ",") {
+		o.configFlags.Context = &context
+		err := o.runWithConfig()
+		if err != nil {
+			fmt.Printf("Error listing volumes for %s: %v\n", context, err)
+		}
+	}
+	return nil
+}
 
-	//fmt.Printf("%t\n", o.list)
-
+func (o *VolumesOptions) runWithConfig() error {
 	kubeClient, err := getKubeClient(o.configFlags)
 	if err != nil {
 		return fmt.Errorf("error creating client: %v", err)
 	}
-	osProvider, tenantID, err := getOpenStackClient(o.rawConfig)
+	osProvider, tenantID, err := getOpenStackClient(o.configFlags)
 	if err != nil {
 		return fmt.Errorf("error creating client: %v", err)
 	}
