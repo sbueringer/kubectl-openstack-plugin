@@ -15,12 +15,15 @@ import (
 	"github.com/gophercloud/gophercloud/openstack/networking/v2/extensions/lbaas_v2/monitors"
 	"github.com/gophercloud/gophercloud/openstack/networking/v2/extensions/lbaas_v2/pools"
 	"github.com/sbueringer/kubectl-openstack-plugin/pkg/output/mattermost"
+	"k8s.io/client-go/rest"
 )
 
 //TODO
 type LBOptions struct {
 	configFlags *genericclioptions.ConfigFlags
-	rawConfig   api.Config
+
+	restConfig *rest.Config
+	rawConfig  api.Config
 
 	exporter string
 	output   string
@@ -72,6 +75,10 @@ func (o *LBOptions) Complete(cmd *cobra.Command, args []string) error {
 	o.args = args
 
 	var err error
+	o.restConfig, err = o.configFlags.ToRawKubeConfigLoader().ClientConfig()
+	if err != nil {
+		return err
+	}
 	o.rawConfig, err = o.configFlags.ToRawKubeConfigLoader().RawConfig()
 	if err != nil {
 		return err
@@ -109,11 +116,11 @@ func (o *LBOptions) Run() error {
 }
 
 func (o *LBOptions) runWithConfig() error {
-	kubeClient, err := getKubeClient(o.configFlags)
+	kubeClient, err := getKubeClient(o.restConfig)
 	if err != nil {
 		return fmt.Errorf("error creating client: %v", err)
 	}
-	osProvider, tenantID, err := getOpenStackClient(o.configFlags)
+	osProvider, tenantID, err := getOpenStackClient(o.rawConfig)
 	if err != nil {
 		return fmt.Errorf("error creating client: %v", err)
 	}

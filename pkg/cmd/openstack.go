@@ -16,7 +16,7 @@ import (
 	"github.com/gophercloud/gophercloud/openstack/networking/v2/extensions/lbaas_v2/monitors"
 	"github.com/gophercloud/gophercloud/openstack/networking/v2/extensions/lbaas_v2/pools"
 	"gopkg.in/yaml.v2"
-	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"k8s.io/client-go/tools/clientcmd/api"
 )
 
 func getVolumes(osProvider *gophercloud.ProviderClient) (map[string]volumes.Volume, error) {
@@ -149,8 +149,8 @@ func getLB(osProvider *gophercloud.ProviderClient) (map[string]loadbalancers.Loa
 	return loadBalancersMap, listenersMap, poolsMap, membersMap, monitorsMap, floatingipsMap, nil
 }
 
-func getOpenStackClient(flags *genericclioptions.ConfigFlags) (*gophercloud.ProviderClient, string, error) {
-	providerClient, tenantID, err := createOpenStackProviderClient(flags)
+func getOpenStackClient(config api.Config) (*gophercloud.ProviderClient, string, error) {
+	providerClient, tenantID, err := createOpenStackProviderClient(config)
 	if err != nil {
 		return nil, tenantID, fmt.Errorf("error creating openstack client: %v", err)
 	}
@@ -158,9 +158,9 @@ func getOpenStackClient(flags *genericclioptions.ConfigFlags) (*gophercloud.Prov
 	return providerClient, tenantID, nil
 }
 
-func createOpenStackProviderClient(flags *genericclioptions.ConfigFlags) (*gophercloud.ProviderClient, string, error) {
+func createOpenStackProviderClient(config api.Config) (*gophercloud.ProviderClient, string, error) {
 
-	context := *flags.Context
+	context := config.CurrentContext
 	tenantID := strings.Split(context, "-")[0]
 
 	openstackConfigFile := os.Getenv("OPENSTACK_CONFIG_FILE")

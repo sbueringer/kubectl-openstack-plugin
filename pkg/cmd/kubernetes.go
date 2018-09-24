@@ -7,23 +7,18 @@ import (
 
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd/api"
 )
 
-func getKubeClient(flags *genericclioptions.ConfigFlags) (*kubernetes.Clientset, error) {
-	config, err := flags.ToRESTConfig()
-	if err != nil {
-		return nil, fmt.Errorf("error parsing config flags: %v", err)
-	}
-
-	clientset, _ := kubernetes.NewForConfig(config)
+func getKubeClient(config *rest.Config) (*kubernetes.Clientset, error) {
+	clientSet, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		return nil, fmt.Errorf("error creating kube client: %v", err)
 	}
 
-	return clientset, nil
+	return clientSet, nil
 }
 
 func getNodes(kubeClient *kubernetes.Clientset) (map[string]v1.Node, error) {

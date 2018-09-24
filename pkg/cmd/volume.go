@@ -12,12 +12,15 @@ import (
 	"strings"
 
 	"github.com/sbueringer/kubectl-openstack-plugin/pkg/output/mattermost"
+	"k8s.io/client-go/rest"
 )
 
 //TODO
 type VolumesOptions struct {
 	configFlags *genericclioptions.ConfigFlags
-	rawConfig   api.Config
+
+	restConfig *rest.Config
+	rawConfig  api.Config
 
 	states string
 
@@ -72,6 +75,10 @@ func (o *VolumesOptions) Complete(cmd *cobra.Command, args []string) error {
 	o.args = args
 
 	var err error
+	o.restConfig, err = o.configFlags.ToRawKubeConfigLoader().ClientConfig()
+	if err != nil {
+		return err
+	}
 	o.rawConfig, err = o.configFlags.ToRawKubeConfigLoader().RawConfig()
 	if err != nil {
 		return err
@@ -109,11 +116,11 @@ func (o *VolumesOptions) Run() error {
 }
 
 func (o *VolumesOptions) runWithConfig() error {
-	kubeClient, err := getKubeClient(o.configFlags)
+	kubeClient, err := getKubeClient(o.restConfig)
 	if err != nil {
 		return fmt.Errorf("error creating client: %v", err)
 	}
-	osProvider, tenantID, err := getOpenStackClient(o.configFlags)
+	osProvider, tenantID, err := getOpenStackClient(o.rawConfig)
 	if err != nil {
 		return fmt.Errorf("error creating client: %v", err)
 	}

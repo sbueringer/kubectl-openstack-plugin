@@ -13,12 +13,15 @@ import (
 	"strings"
 
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/client-go/rest"
 )
 
 //TODO
 type ServerOptions struct {
 	configFlags *genericclioptions.ConfigFlags
-	rawConfig   api.Config
+
+	restConfig *rest.Config
+	rawConfig  api.Config
 
 	states string
 
@@ -73,6 +76,10 @@ func (o *ServerOptions) Complete(cmd *cobra.Command, args []string) error {
 	o.args = args
 
 	var err error
+	o.restConfig, err = o.configFlags.ToRawKubeConfigLoader().ClientConfig()
+	if err != nil {
+		return err
+	}
 	o.rawConfig, err = o.configFlags.ToRawKubeConfigLoader().RawConfig()
 	if err != nil {
 		return err
@@ -99,7 +106,7 @@ func (o *ServerOptions) Run() error {
 		return nil
 	}
 
-	for context := range getMatchingContexts(o.rawConfig.Contexts, *o.configFlags.Context) {
+	for context := range getMatchingContexts(o.rawConfig.Contexts, o.rawConfig.CurrentContext) {
 		o.configFlags.Context = &context
 		err := o.runWithConfig()
 		if err != nil {
@@ -110,11 +117,11 @@ func (o *ServerOptions) Run() error {
 }
 
 func (o *ServerOptions) runWithConfig() error {
-	kubeClient, err := getKubeClient(o.configFlags)
+	kubeClient, err := getKubeClient(o.restConfig)
 	if err != nil {
 		return fmt.Errorf("error creating client: %v", err)
 	}
-	osProvider, tenantID, err := getOpenStackClient(o.configFlags)
+	osProvider, tenantID, err := getOpenStackClient(o.rawConfig)
 	if err != nil {
 		return fmt.Errorf("error creating client: %v", err)
 	}
@@ -187,7 +194,7 @@ func (o *ServerOptions) getPrettyServerList(nodes map[string]v1.Node, server map
 			containerRuntimeVersion = node.Status.NodeInfo.ContainerRuntimeVersion
 			dhcVersion = node.Labels["dhc-version"]
 			cpu = node.Status.Capacity.Cpu().String()
-			ram = fmt.Sprintf("%dG", node.Status.Capacity.Memory().ScaledValue(resource.Mega))
+			ram = fmt.Sprintf("%dMB", node.Status.Capacity.Memory().ScaledValue(resource.Mega))
 			for _, addr := range node.Status.Addresses {
 				if addr.Type == v1.NodeInternalIP {
 					ip = addr.Address
