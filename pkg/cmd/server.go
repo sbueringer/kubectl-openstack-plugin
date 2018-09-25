@@ -165,7 +165,7 @@ func (o *ServerOptions) runWithConfig() error {
 
 func (o *ServerOptions) getPrettyServerList(nodes map[string]v1.Node, server map[string]servers.Server) (string, error) {
 
-	header := []string{"NODE_NAME", "STATUS", "KUBELET_VERSION", "KUBEPROXY_VERSION", "RUNTIME_VERSION", "DHC_VERSION", "SERVER_ID", "STATE", "CPU", "RAM", "IP"}
+	header := []string{"NODE_NAME", "STATUS", "KUBELET_VERSION", "KUBEPROXY_VERSION", "RUNTIME_VERSION", "DHC_VERSION", "SERVER_NAME", "SERVER_ID", "STATE", "CPU", "RAM", "IP"}
 
 	var lines [][]string
 	for _, s := range server {
@@ -211,7 +211,7 @@ func (o *ServerOptions) getPrettyServerList(nodes map[string]v1.Node, server map
 		}
 
 		if matchesStates || o.states == "" {
-			lines = append(lines, []string{name, status, kubeletVersion, kubeProxyVersion, containerRuntimeVersion, dhcVersion, s.ID, s.Status, cpu, ram, ip})
+			lines = append(lines, []string{name, status, kubeletVersion, kubeProxyVersion, containerRuntimeVersion, dhcVersion, s.Name, s.ID, s.Status, cpu, ram, ip})
 		}
 	}
 	return convertToTable(table{header, lines, 0, o.output})

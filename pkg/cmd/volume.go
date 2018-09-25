@@ -130,6 +130,11 @@ func (o *VolumesOptions) runWithConfig() error {
 		return fmt.Errorf("error getting persistent volumes from Kubernetes: %v", err)
 	}
 
+	podMap, err := getPodsByPVC(kubeClient)
+	if err != nil {
+		return fmt.Errorf("error getting persistent volumes from Kubernetes: %v", err)
+	}
+
 	volumesMap, err := getVolumes(osProvider)
 	if err != nil {
 		return fmt.Errorf("error getting volumes from OpenStack: %v", err)
@@ -140,7 +145,7 @@ func (o *VolumesOptions) runWithConfig() error {
 		return fmt.Errorf("error getting servers from OpenStack: %v", err)
 	}
 
-	output, err := o.getPrettyVolumeList(pvMap, volumesMap, serversMap)
+	output, err := o.getPrettyVolumeList(pvMap, podMap, volumesMap, serversMap)
 	if err != nil {
 		return fmt.Errorf("error creating output: %v", err)
 	}
@@ -167,24 +172,29 @@ func (o *VolumesOptions) runWithConfig() error {
 	return nil
 }
 
-func (o *VolumesOptions) getPrettyVolumeList(pvs map[string]v1.PersistentVolume, volumes map[string]volumes.Volume, server map[string]servers.Server) (string, error) {
+func (o *VolumesOptions) getPrettyVolumeList(pvs map[string]v1.PersistentVolume, podMap map[string]v1.Pod, volumes map[string]volumes.Volume, server map[string]servers.Server) (string, error) {
 
-	header := []string{"CLAIM", "PV_NAME", "CINDER_ID", "SERVERS", "STATUS"}
+	header := []string{"CLAIM", "PV_NAME", "POD_NAME", "CINDER_ID", "SERVER_NAME", "SERVER_ID", "STATUS"}
 
 	var lines [][]string
 	for _, v := range volumes {
-		var attachServers []string
+		var attachServerNames []string
+		var attachServerIDs []string
 		for _, a := range v.Attachments {
 			if srv, ok := server[a.ServerID]; ok {
-				attachServers = append(attachServers, srv.Name)
+				attachServerNames = append(attachServerNames, srv.Name)
+				attachServerIDs = append(attachServerIDs, srv.ID)
 			}
 		}
 		pvName := "-"
 		pvClaim := "-"
+		podName := "-"
 		if pv, ok := pvs[v.ID]; ok {
 			pvName = pv.Name
 			pvClaim = fmt.Sprintf("%s/%s", pv.Spec.ClaimRef.Namespace, pv.Spec.ClaimRef.Name)
-
+			if pod, ok := podMap[pvClaim]; ok {
+				podName = pod.Name
+			}
 		}
 
 		matchesStates := false
@@ -196,7 +206,7 @@ func (o *VolumesOptions) getPrettyVolumeList(pvs map[string]v1.PersistentVolume,
 		}
 
 		if matchesStates || o.states == "" {
-			lines = append(lines, []string{pvClaim, pvName, v.ID, strings.Join(attachServers, " "), v.Status})
+			lines = append(lines, []string{pvClaim, pvName, podName, v.ID, strings.Join(attachServerNames, " "), strings.Join(attachServerIDs, " "), v.Status})
 		}
 	}
 	return convertToTable(table{header, lines, 0, o.output})

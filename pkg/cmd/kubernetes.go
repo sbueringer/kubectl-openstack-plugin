@@ -66,6 +66,24 @@ func getPersistentVolumes(kubeClient *kubernetes.Clientset) (map[string]v1.Persi
 	return pvMap, nil
 }
 
+func getPodsByPVC(kubeClient *kubernetes.Clientset) (map[string]v1.Pod, error) {
+	pods, err := kubeClient.CoreV1().Pods("").List(metav1.ListOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("error getting pods: %v", err)
+	}
+	podMap := map[string]v1.Pod{}
+	for _, pod := range pods.Items {
+		for _, volume := range pod.Spec.Volumes {
+			if volume.PersistentVolumeClaim != nil && volume.PersistentVolumeClaim.ClaimName != "" {
+				pvcName := fmt.Sprintf("%s/%s", pod.Namespace, volume.PersistentVolumeClaim.ClaimName)
+				fmt.Println(pvcName)
+				podMap[pvcName] = pod
+			}
+		}
+	}
+	return podMap, nil
+}
+
 func getMatchingContexts(contexts map[string]*api.Context, contextRegexps string) map[string]bool {
 	matchingContexts := map[string]bool{}
 	for _, contextRegexp := range strings.Split(contextRegexps, ",") {
