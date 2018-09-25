@@ -76,7 +76,6 @@ func getPodsByPVC(kubeClient *kubernetes.Clientset) (map[string]v1.Pod, error) {
 		for _, volume := range pod.Spec.Volumes {
 			if volume.PersistentVolumeClaim != nil && volume.PersistentVolumeClaim.ClaimName != "" {
 				pvcName := fmt.Sprintf("%s/%s", pod.Namespace, volume.PersistentVolumeClaim.ClaimName)
-				fmt.Println(pvcName)
 				podMap[pvcName] = pod
 			}
 		}
