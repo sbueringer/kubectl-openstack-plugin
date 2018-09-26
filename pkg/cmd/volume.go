@@ -209,5 +209,5 @@ func (o *VolumesOptions) getPrettyVolumeList(pvs map[string]v1.PersistentVolume,
 			lines = append(lines, []string{pvClaim, pvName, podName, v.ID, strings.Join(attachServerNames, " "), strings.Join(attachServerIDs, " "), v.Status})
 		}
 	}
-	return convertToTable(table{header, lines, 0, o.output})
+	return convertToTable(table{header, lines, []int{0, 1}, o.output})
 }

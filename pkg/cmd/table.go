@@ -11,15 +11,23 @@ import (
 )
 
 type table struct {
-	header    []string
-	lines     [][]string
-	sortIndex int
-	output    string
+	header      []string
+	lines       [][]string
+	sortIndices []int
+	output      string
 }
 
-func (t table) Len() int           { return len(t.lines) }
-func (t table) Swap(i, j int)      { t.lines[i], t.lines[j] = t.lines[j], t.lines[i] }
-func (t table) Less(i, j int) bool { return t.lines[i][t.sortIndex] < t.lines[j][t.sortIndex] }
+func (t table) Len() int      { return len(t.lines) }
+func (t table) Swap(i, j int) { t.lines[i], t.lines[j] = t.lines[j], t.lines[i] }
+func (t table) Less(i, j int) bool {
+	for _, index := range t.sortIndices {
+		if t.lines[i][index] == t.lines[j][index] {
+			continue
+		}
+		return t.lines[i][index] < t.lines[j][index]
+	}
+	return t.lines[i][0] < t.lines[j][0]
+}
 
 func convertToTable(t table) (string, error) {
 

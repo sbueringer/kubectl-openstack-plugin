@@ -214,5 +214,5 @@ func (o *ServerOptions) getPrettyServerList(nodes map[string]v1.Node, server map
 			lines = append(lines, []string{name, status, kubeletVersion, kubeProxyVersion, containerRuntimeVersion, dhcVersion, s.Name, s.ID, s.Status, cpu, ram, ip})
 		}
 	}
-	return convertToTable(table{header, lines, 0, o.output})
+	return convertToTable(table{header, lines, []int{0, 1}, o.output})
 }

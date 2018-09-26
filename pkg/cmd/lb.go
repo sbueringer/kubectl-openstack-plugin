@@ -206,7 +206,7 @@ func (o *LBOptions) getPrettyLBList(services map[int32]v1.Service, loadbalancers
 			lines = append(lines, []string{lb.Name, floatingIPsString, lb.VipAddress, portMapping, svcs})
 		}
 	}
-	return convertToTable(table{header, lines, 0, o.output})
+	return convertToTable(table{header, lines, []int{0, 1}, o.output})
 }
 func getFloatingIPForLB(lb loadbalancers.LoadBalancer, floatingIPs map[string]floatingips.FloatingIP) []string {
 	var fips []string
