@@ -98,7 +98,7 @@ func (o *VolumesOptions) Validate() error {
 // Run lists all volumes
 func (o *VolumesOptions) Run() error {
 	if *o.configFlags.Context == "" {
-		err := o.runWithConfig()
+		err := o.runWithConfig("")
 		if err != nil {
 			return fmt.Errorf("error listing volumes for %s: %v\n", o.rawConfig.CurrentContext, err)
 		}
@@ -107,7 +107,7 @@ func (o *VolumesOptions) Run() error {
 
 	for context := range getMatchingContexts(o.rawConfig.Contexts, *o.configFlags.Context) {
 		o.configFlags.Context = &context
-		err := o.runWithConfig()
+		err := o.runWithConfig(context)
 		if err != nil {
 			fmt.Printf("Error listing volumes for %s: %v\n", context, err)
 		}
@@ -115,12 +115,28 @@ func (o *VolumesOptions) Run() error {
 	return nil
 }
 
-func (o *VolumesOptions) runWithConfig() error {
-	kubeClient, err := getKubeClient(o.restConfig)
+func (o *VolumesOptions) runWithConfig(context string) error {
+	if context == "" {
+		context = o.rawConfig.CurrentContext
+	}
+
+	contextStruct := o.rawConfig.Contexts[context]
+	cluster := o.rawConfig.Clusters[contextStruct.Cluster]
+	authInfo := o.rawConfig.AuthInfos[contextStruct.AuthInfo]
+	c := &rest.Config{
+		Host: cluster.Server,
+		TLSClientConfig: rest.TLSClientConfig{
+			CAData:   cluster.CertificateAuthorityData,
+			KeyData:  authInfo.ClientKeyData,
+			CertData: authInfo.ClientCertificateData,
+		},
+	}
+
+	kubeClient, err := getKubeClient(c)
 	if err != nil {
 		return fmt.Errorf("error creating client: %v", err)
 	}
-	osProvider, tenantID, err := getOpenStackClient(o.rawConfig)
+	osProvider, tenantID, err := getOpenStackClient(context)
 	if err != nil {
 		return fmt.Errorf("error creating client: %v", err)
 	}
