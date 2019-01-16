@@ -1,7 +1,7 @@
 FROM ubuntu:18.04
 
 RUN apt-get update \
-  && apt-get install -y wget unzip \
+  && apt-get install -y wget curl unzip zip git-core python build-essential jq python-pip sudo iptables vim \
   && rm -rf /var/lib/apt/lists/*
 
 ENV BAZEL_VERSION 0.21.0
