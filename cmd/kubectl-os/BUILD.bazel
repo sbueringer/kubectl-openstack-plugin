@@ -36,7 +36,7 @@ filegroup(
 load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
 
 pkg_tar(
-    name = "kubectl_os_tar",
-    srcs = [":go_default_library"],
+    name = "kubectl-os_tar",
+    srcs = [":kubectl-os"],
     extension = "tar.gz",
 )
