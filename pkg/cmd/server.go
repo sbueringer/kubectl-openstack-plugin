@@ -2,14 +2,18 @@ package cmd
 
 import (
 	"github.com/gophercloud/gophercloud/openstack/compute/v2/servers"
+	"github.com/sbueringer/kubectl-openstack-plugin/bazel-kubectl-openstack-plugin/external/go_sdk/src/sort"
+	"github.com/sbueringer/kubectl-openstack-plugin/pkg/kubernetes"
+	"github.com/sbueringer/kubectl-openstack-plugin/pkg/openstack"
+	"github.com/sbueringer/kubectl-openstack-plugin/pkg/output"
 	"github.com/sbueringer/kubectl-openstack-plugin/pkg/output/mattermost"
 	"github.com/spf13/cobra"
 	"k8s.io/api/core/v1"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/tools/clientcmd/api"
+	"os"
 
 	"fmt"
-
 	"strings"
 
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -20,14 +24,16 @@ import (
 type ServerOptions struct {
 	configFlags *genericclioptions.ConfigFlags
 
-	restConfig *rest.Config
-	rawConfig  api.Config
+	rawConfig api.Config
 
 	states string
 
-	exporter string
-	output   string
-	args     []string
+	exporter   string
+	output     string
+	noHeader   bool
+	args       []string
+	onlyBroken bool
+	debug      bool
 
 	genericclioptions.IOStreams
 }
@@ -36,10 +42,13 @@ var (
 	serverExample = `
 	# list server
 	%[1]s server
+	
+	# list server with debug columns
+	%[1]s server --debug
 `
 )
 
-//TODO
+// NewCmdServer creates the server cmd
 func NewCmdServer(streams genericclioptions.IOStreams) *cobra.Command {
 	o := &ServerOptions{
 		configFlags: genericclioptions.NewConfigFlags(),
@@ -67,6 +76,9 @@ func NewCmdServer(streams genericclioptions.IOStreams) *cobra.Command {
 	cmd.Flags().StringVar(&o.states, "states", "", "filter by states, default list all")
 	cmd.Flags().StringVarP(&o.exporter, "exporter", "e", "stdout", "stdout, mm or multiple (comma-separated)")
 	cmd.Flags().StringVarP(&o.output, "output", "o", "markdown", "markdown or raw")
+	cmd.Flags().BoolVarP(&o.debug, "debug", "", false, "debug prints more columns")
+	cmd.Flags().BoolVarP(&o.onlyBroken, "only-broken", "", false, "only show disks which are broken/out of sync")
+	cmd.Flags().BoolVarP(&o.noHeader, "no-headers", "", false, "hide table headers")
 	o.configFlags.AddFlags(cmd.Flags())
 	return cmd
 }
@@ -76,10 +88,6 @@ func (o *ServerOptions) Complete(cmd *cobra.Command, args []string) error {
 	o.args = args
 
 	var err error
-	o.restConfig, err = o.configFlags.ToRawKubeConfigLoader().ClientConfig()
-	if err != nil {
-		return err
-	}
 	o.rawConfig, err = o.configFlags.ToRawKubeConfigLoader().RawConfig()
 	if err != nil {
 		return err
@@ -98,19 +106,37 @@ func (o *ServerOptions) Validate() error {
 
 // Run lists all server
 func (o *ServerOptions) Run() error {
-	if *o.configFlags.Context == "" {
-		err := o.runWithConfig("")
+	contexts := kubernetes.GetMatchingContexts(o.rawConfig, *o.configFlags.Context)
+
+	if len(contexts) == 1 {
+		err := o.runWithConfig(contexts[0])
 		if err != nil {
 			return fmt.Errorf("error listing server for %s: %v\n", o.rawConfig.CurrentContext, err)
 		}
 		return nil
 	}
 
-	for context := range getMatchingContexts(o.rawConfig.Contexts, *o.configFlags.Context) {
+	// multiple tenants
+	// disable header here and print them once if required
+	if !o.noHeader {
+		var header []string
+		if o.debug {
+			header = serverDebugHeaders
+		} else {
+			header = serverHeaders
+		}
+		output, err := output.ConvertToTable(output.Table{header, [][]string{}, []int{0, 1}, o.output})
+		if err != nil {
+			return fmt.Errorf("error creating output: %v", err)
+		}
+		fmt.Printf(output)
+	}
+	o.noHeader = true
+	for _, context := range contexts {
 		o.configFlags.Context = &context
 		err := o.runWithConfig(context)
 		if err != nil {
-			fmt.Printf("Error listing server for %s: %v\n", context, err)
+			fmt.Fprintf(os.Stderr, "Error listing server for %s: %v\n", context, err)
 		}
 	}
 	return nil
@@ -118,7 +144,7 @@ func (o *ServerOptions) Run() error {
 
 func (o *ServerOptions) runWithConfig(context string) error {
 	if context == "" {
-		context = o.rawConfig.CurrentContext
+		return fmt.Errorf("no context set")
 	}
 
 	contextStruct := o.rawConfig.Contexts[context]
@@ -133,30 +159,33 @@ func (o *ServerOptions) runWithConfig(context string) error {
 		},
 	}
 
-	kubeClient, err := getKubeClient(c)
+	kubeClient, err := kubernetes.GetKubeClient(c)
 	if err != nil {
 		return fmt.Errorf("error creating client: %v", err)
 	}
-	osProvider, tenantID, err := getOpenStackClient(context)
+	osProvider, tenantID, err := openstack.GetOpenStackClient(context)
 	if err != nil {
 		return fmt.Errorf("error creating client: %v", err)
 	}
 
-	nodesMap, err := getNodes(kubeClient)
+	nodesMap, err := kubernetes.GetNodes(kubeClient)
 	if err != nil {
 		return fmt.Errorf("error getting persistent volumes from Kubernetes: %v", err)
 	}
 
-	serversMap, err := getServer(osProvider)
+	serversMap, err := openstack.GetServer(osProvider)
 	if err != nil {
 		return fmt.Errorf("error getting servers from OpenStack: %v", err)
 	}
 
-	output, err := o.getPrettyServerList(nodesMap, serversMap)
+	output, err := o.getPrettyServerList(context, nodesMap, serversMap)
 	if err != nil {
 		return fmt.Errorf("error creating output: %v", err)
 	}
 
+	if output == "" {
+		return nil
+	}
 	for _, exporter := range strings.Split(o.exporter, ",") {
 		switch exporter {
 		case "stdout":
@@ -179,9 +208,19 @@ func (o *ServerOptions) runWithConfig(context string) error {
 	return nil
 }
 
-func (o *ServerOptions) getPrettyServerList(nodes map[string]v1.Node, server map[string]servers.Server) (string, error) {
+var serverHeaders = []string{"CLUSTER", "NODE_NAME", "STATUS", "KUBELET_VERSION", "KUBEPROXY_VERSION", "RUNTIME_VERSION", "DHC_VERSION", "SERVER_NAME", "SERVER_ID", "STATE", "CPU", "RAM", "IP", "NOTE"}
+var serverDebugHeaders = []string{"CLUSTER", "NODE_NAME", "STATUS", "KUBELET_VERSION", "KUBEPROXY_VERSION", "RUNTIME_VERSION", "DHC_VERSION", "SERVER_NAME", "SERVER_ID", "VOLUMES", "STATE", "CPU", "RAM", "IP", "NOTE"}
 
-	header := []string{"NODE_NAME", "STATUS", "KUBELET_VERSION", "KUBEPROXY_VERSION", "RUNTIME_VERSION", "DHC_VERSION", "SERVER_NAME", "SERVER_ID", "STATE", "CPU", "RAM", "IP"}
+func (o *ServerOptions) getPrettyServerList(context string, nodes map[string]v1.Node, server map[string]servers.Server) (string, error) {
+
+	var header []string
+	if !o.noHeader {
+		if o.debug {
+			header = serverDebugHeaders
+		} else {
+			header = serverHeaders
+		}
+	}
 
 	var lines [][]string
 	for _, s := range server {
@@ -194,6 +233,25 @@ func (o *ServerOptions) getPrettyServerList(nodes map[string]v1.Node, server map
 		cpu := "-"
 		ram := "-"
 		ip := "-"
+		attachmentCount := map[string]int{}
+		var attachments []string
+		var attachedVolumes []string
+		overallNovaAttachmentCount := 0
+		for _, attachedVolume := range s.AttachedVolumes {
+			for key, volumeID := range attachedVolume {
+				if key == "id" {
+					attachmentCount[volumeID]++
+					overallNovaAttachmentCount++
+				}
+			}
+		}
+		for a := range attachmentCount {
+			attachments = append(attachments, a)
+		}
+		sort.Strings(attachments)
+		for _, a := range attachments {
+			attachedVolumes = append(attachedVolumes, fmt.Sprintf("%dx %s", attachmentCount[a], a))
+		}
 		if node, ok := nodes[s.ID]; ok {
 			name = node.Name
 			for _, st := range node.Status.Conditions {
@@ -226,9 +284,25 @@ func (o *ServerOptions) getPrettyServerList(nodes map[string]v1.Node, server map
 			}
 		}
 
-		if matchesStates || o.states == "" {
-			lines = append(lines, []string{name, status, kubeletVersion, kubeProxyVersion, containerRuntimeVersion, dhcVersion, s.Name, s.ID, s.Status, cpu, ram, ip})
+		var notes []string
+		showDiskIfOnlyBroken := false
+		// check error states
+		if overallNovaAttachmentCount > len(attachedVolumes) {
+			showDiskIfOnlyBroken = true
+			notes = append(notes, "multiple attachments")
+		}
+		note := strings.Join(notes, ", ")
+
+		if (!o.onlyBroken || showDiskIfOnlyBroken) && (matchesStates || o.states == "") {
+			if o.debug {
+				lines = append(lines, []string{context, name, status, kubeletVersion, kubeProxyVersion, containerRuntimeVersion, dhcVersion, s.Name, s.ID, strings.Join(attachedVolumes, " "), s.Status, cpu, ram, ip, note})
+			} else {
+				lines = append(lines, []string{context, name, status, kubeletVersion, kubeProxyVersion, containerRuntimeVersion, dhcVersion, s.Name, s.ID, s.Status, cpu, ram, ip, note})
+			}
 		}
 	}
-	return convertToTable(table{header, lines, []int{0, 1}, o.output})
+	if len(lines) > 0 {
+		return output.ConvertToTable(output.Table{header, lines, []int{0, 1}, o.output})
+	}
+	return "", nil
 }

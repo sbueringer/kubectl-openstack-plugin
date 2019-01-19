@@ -1,10 +1,14 @@
 package cmd
 
 import (
+	"github.com/sbueringer/kubectl-openstack-plugin/pkg/kubernetes"
+	"github.com/sbueringer/kubectl-openstack-plugin/pkg/openstack"
+	"github.com/sbueringer/kubectl-openstack-plugin/pkg/output"
 	"github.com/spf13/cobra"
 	"k8s.io/api/core/v1"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/tools/clientcmd/api"
+	"os"
 
 	"fmt"
 	"strings"
@@ -22,11 +26,11 @@ import (
 type LBOptions struct {
 	configFlags *genericclioptions.ConfigFlags
 
-	restConfig *rest.Config
-	rawConfig  api.Config
+	rawConfig api.Config
 
 	exporter string
 	output   string
+	noHeader bool
 	args     []string
 
 	genericclioptions.IOStreams
@@ -39,15 +43,14 @@ var (
 `
 )
 
-//TODO
+// NewCmdLB creates the lb cmd
 func NewCmdLB(streams genericclioptions.IOStreams) *cobra.Command {
 	o := &LBOptions{
 		configFlags: genericclioptions.NewConfigFlags(),
 		IOStreams:   streams,
 	}
 	cmd := &cobra.Command{
-		Use: "lb",
-		//Aliases:      []string{"lb"},
+		Use:          "lb",
 		Short:        "List all lb and corresponding services from Kubernetes and OpenStack",
 		Example:      fmt.Sprintf(lbExample, "kubectl os"),
 		SilenceUsage: true,
@@ -66,6 +69,7 @@ func NewCmdLB(streams genericclioptions.IOStreams) *cobra.Command {
 	}
 	cmd.Flags().StringVarP(&o.exporter, "exporter", "e", "stdout", "stdout, mm or multiple (comma-separated)")
 	cmd.Flags().StringVarP(&o.output, "output", "o", "markdown", "markdown or raw")
+	cmd.Flags().BoolVarP(&o.noHeader, "no-headers", "", false, "hide table headers")
 	o.configFlags.AddFlags(cmd.Flags())
 	return cmd
 }
@@ -75,10 +79,6 @@ func (o *LBOptions) Complete(cmd *cobra.Command, args []string) error {
 	o.args = args
 
 	var err error
-	o.restConfig, err = o.configFlags.ToRawKubeConfigLoader().ClientConfig()
-	if err != nil {
-		return err
-	}
 	o.rawConfig, err = o.configFlags.ToRawKubeConfigLoader().RawConfig()
 	if err != nil {
 		return err
@@ -97,19 +97,31 @@ func (o *LBOptions) Validate() error {
 
 // Run lists all loadbalancers
 func (o *LBOptions) Run() error {
-	if *o.configFlags.Context == "" {
-		err := o.runWithConfig("")
+	contexts := kubernetes.GetMatchingContexts(o.rawConfig, *o.configFlags.Context)
+
+	if len(contexts) == 1 {
+		err := o.runWithConfig(contexts[0])
 		if err != nil {
 			return fmt.Errorf("Error listing loadbalancers for %s: %v\n", o.rawConfig.CurrentContext, err)
 		}
 		return nil
 	}
 
-	for context := range getMatchingContexts(o.rawConfig.Contexts, *o.configFlags.Context) {
+	// multiple tenants
+	// disable header here and print them once if required
+	if !o.noHeader {
+		output, err := output.ConvertToTable(output.Table{volumeHeaders, [][]string{}, []int{0, 1}, o.output})
+		if err != nil {
+			return fmt.Errorf("error creating output: %v", err)
+		}
+		fmt.Printf(output)
+	}
+	o.noHeader = true
+	for _, context := range contexts {
 		o.configFlags.Context = &context
 		err := o.runWithConfig(context)
 		if err != nil {
-			fmt.Printf("Error listing loadbalancers for %s: %v\n", context, err)
+			fmt.Fprintf(os.Stderr, "Error listing loadbalancers for %s: %v\n", context, err)
 		}
 	}
 	return nil
@@ -117,7 +129,7 @@ func (o *LBOptions) Run() error {
 
 func (o *LBOptions) runWithConfig(context string) error {
 	if context == "" {
-		context = o.rawConfig.CurrentContext
+		return fmt.Errorf("no context set")
 	}
 
 	contextStruct := o.rawConfig.Contexts[context]
@@ -132,30 +144,33 @@ func (o *LBOptions) runWithConfig(context string) error {
 		},
 	}
 
-	kubeClient, err := getKubeClient(c)
+	kubeClient, err := kubernetes.GetKubeClient(c)
 	if err != nil {
 		return fmt.Errorf("error creating client: %v", err)
 	}
-	osProvider, tenantID, err := getOpenStackClient(context)
+	osProvider, tenantID, err := openstack.GetOpenStackClient(context)
 	if err != nil {
 		return fmt.Errorf("error creating client: %v", err)
 	}
 
-	servicesMap, err := getServices(kubeClient)
+	servicesMap, err := kubernetes.GetServices(kubeClient)
 	if err != nil {
 		return fmt.Errorf("error getting persistent volumes from Kubernetes: %v", err)
 	}
 
-	loadBalancersMap, listenersMap, poolsMap, membersMap, monitorsMap, floatingipsMap, err := getLB(osProvider)
+	loadBalancersMap, listenersMap, poolsMap, membersMap, monitorsMap, floatingipsMap, err := openstack.GetLB(osProvider)
 	if err != nil {
 		return fmt.Errorf("error getting servers from OpenStack: %v", err)
 	}
 
-	output, err := o.getPrettyLBList(servicesMap, loadBalancersMap, listenersMap, poolsMap, membersMap, monitorsMap, floatingipsMap)
+	output, err := o.getPrettyLBList(context, servicesMap, loadBalancersMap, listenersMap, poolsMap, membersMap, monitorsMap, floatingipsMap)
 	if err != nil {
 		return fmt.Errorf("error creating output: %v", err)
 	}
 
+	if output == "" {
+		return nil
+	}
 	for _, exporter := range strings.Split(o.exporter, ",") {
 		switch exporter {
 		case "stdout":
@@ -167,9 +182,9 @@ func (o *LBOptions) runWithConfig(context string) error {
 				var msg string
 				switch o.output {
 				case "raw":
-					msg = fmt.Sprintf("LBaaS for %s:\n\n````\n%s````\n", tenantID, output)
+					msg = fmt.Sprintf("LBaaS for %s:\n\n````\n%s````\n\n", tenantID, output)
 				case "markdown":
-					msg = fmt.Sprintf("LBaaS for %s:\n\n%s\n", tenantID, output)
+					msg = fmt.Sprintf("LBaaS for %s:\n\n%s\n\n", tenantID, output)
 				}
 				mattermost.New().SendMessage(msg)
 			}
@@ -178,9 +193,14 @@ func (o *LBOptions) runWithConfig(context string) error {
 	return nil
 }
 
-func (o *LBOptions) getPrettyLBList(services map[int32]v1.Service, loadbalancers map[string]loadbalancers.LoadBalancer, listeners map[string]listeners.Listener, pools map[string]pools.Pool, members map[string]pools.Member, monitors map[string]monitors.Monitor, floatingIPs map[string]floatingips.FloatingIP) (string, error) {
+var lbHeaders = []string{"CLUSTER", "NAME", "FLOATING_IPS", "VIP_ADDRESS", "PORTS", "SERVICES"}
 
-	header := []string{"NAME", "FLOATING_IPS", "VIP_ADDRESS", "PORTS", "SERVICES"}
+func (o *LBOptions) getPrettyLBList(context string, services map[int32]v1.Service, loadbalancers map[string]loadbalancers.LoadBalancer, listeners map[string]listeners.Listener, pools map[string]pools.Pool, members map[string]pools.Member, monitors map[string]monitors.Monitor, floatingIPs map[string]floatingips.FloatingIP) (string, error) {
+
+	var header []string
+	if !o.noHeader {
+		header = lbHeaders
+	}
 
 	var lines [][]string
 	poolsPerListener := getPoolsPerListener(pools)
@@ -219,11 +239,15 @@ func (o *LBOptions) getPrettyLBList(services map[int32]v1.Service, loadbalancers
 				svcs = "-"
 			}
 
-			lines = append(lines, []string{lb.Name, floatingIPsString, lb.VipAddress, portMapping, svcs})
+			lines = append(lines, []string{context, lb.Name, floatingIPsString, lb.VipAddress, portMapping, svcs})
 		}
 	}
-	return convertToTable(table{header, lines, []int{0, 1}, o.output})
+	if len(lines) > 0 {
+		return output.ConvertToTable(output.Table{header, lines, []int{0, 1}, o.output})
+	}
+	return "", nil
 }
+
 func getFloatingIPForLB(lb loadbalancers.LoadBalancer, floatingIPs map[string]floatingips.FloatingIP) []string {
 	var fips []string
 	for _, floatingIP := range floatingIPs {
