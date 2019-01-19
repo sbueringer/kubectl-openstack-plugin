@@ -43,7 +43,7 @@ func NewCmdVolumesFix(streams genericclioptions.IOStreams) *cobra.Command {
 		Use:          "volumes-fix",
 		Aliases:      []string{"vsf"},
 		Short:        "Fix volumes from Kubernetes and OpenStack",
-		Example:      fmt.Sprintf(volumesFixExample, "kubectl os"),
+		Example:      fmt.Sprintf(volumesFixExample, "kubectl openstack"),
 		SilenceUsage: true,
 		RunE: func(c *cobra.Command, args []string) error {
 			if err := o.Complete(c, args); err != nil {

@@ -57,7 +57,7 @@ func NewCmdVolumes(streams genericclioptions.IOStreams) *cobra.Command {
 		Use:          "volumes",
 		Aliases:      []string{"vs"},
 		Short:        "List all volumes from Kubernetes and OpenStack",
-		Example:      fmt.Sprintf(volumesExample, "kubectl os"),
+		Example:      fmt.Sprintf(volumesExample, "kubectl openstack"),
 		SilenceUsage: true,
 		RunE: func(c *cobra.Command, args []string) error {
 			if err := o.Complete(c, args); err != nil {

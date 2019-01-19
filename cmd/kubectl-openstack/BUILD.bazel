@@ -2,8 +2,8 @@ load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
 
 go_library(
     name = "go_default_library",
-    srcs = ["kubectl-os.go"],
-    importpath = "github.com/sbueringer/kubectl-openstack-plugin/cmd/kubectl-os",
+    srcs = ["kubectl-openstack.go"],
+    importpath = "github.com/sbueringer/kubectl-openstack-plugin/cmd/kubectl-openstack",
     visibility = ["//visibility:private"],
     deps = [
         "//pkg/cmd:go_default_library",
@@ -13,7 +13,7 @@ go_library(
 )
 
 go_binary(
-    name = "kubectl-os",
+    name = "kubectl-openstack",
     embed = [":go_default_library"],
     pure = "on",
     visibility = ["//visibility:public"],
@@ -36,7 +36,7 @@ filegroup(
 load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
 
 pkg_tar(
-    name = "kubectl-os_tar",
-    srcs = [":kubectl-os"],
+    name = "kubectl-openstack_tar",
+    srcs = [":kubectl-openstack"],
     extension = "tar.gz",
 )

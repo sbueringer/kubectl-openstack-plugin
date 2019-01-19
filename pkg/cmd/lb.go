@@ -52,7 +52,7 @@ func NewCmdLB(streams genericclioptions.IOStreams) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:          "lb",
 		Short:        "List all lb and corresponding services from Kubernetes and OpenStack",
-		Example:      fmt.Sprintf(lbExample, "kubectl os"),
+		Example:      fmt.Sprintf(lbExample, "kubectl openstack"),
 		SilenceUsage: true,
 		RunE: func(c *cobra.Command, args []string) error {
 			if err := o.Complete(c, args); err != nil {

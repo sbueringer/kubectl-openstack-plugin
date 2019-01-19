@@ -25,15 +25,15 @@ after_success:
 - bash <(curl -s https://codecov.io/bash)
 
 before_deploy:
-- cp bazel-bin/cmd/kubectl-os/linux_amd64_pure_stripped/kubectl-os /tmp/kubectl-os
-- cp bazel-bin/cmd/kubectl-os/kubectl-os_tar.tar.gz /tmp/kubectl-os.tar.gz
+- cp bazel-bin/cmd/kubectl-openstack/linux_amd64_pure_stripped/kubectl-openstack /tmp/kubectl-openstack
+- cp bazel-bin/cmd/kubectl-openstack/kubectl-openstack_tar.tar.gz /tmp/kubectl-openstack.tar.gz
 
 deploy:
 - provider: releases
   api_key: $GITHUB_RELEASE_TOKEN
   file:
-  - /tmp/kubectl-os
-  - /tmp/kubectl-os.tar.gz
+  - /tmp/kubectl-openstack
+  - /tmp/kubectl-openstack.tar.gz
   overwrite: true
   skip_cleanup: true
   on:

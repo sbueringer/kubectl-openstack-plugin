@@ -39,7 +39,7 @@ func NewCmdImportConfig(streams genericclioptions.IOStreams) *cobra.Command {
 		Use:          "import-config",
 		Aliases:      []string{"rc"},
 		Short:        "Import config from OpenStack rc files.",
-		Example:      fmt.Sprintf(importConfigExample, "kubectl os"),
+		Example:      fmt.Sprintf(importConfigExample, "kubectl openstack"),
 		SilenceUsage: true,
 		RunE: func(c *cobra.Command, args []string) error {
 			if err := o.Complete(c, args); err != nil {
