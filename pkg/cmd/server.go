@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"github.com/gophercloud/gophercloud/openstack/compute/v2/servers"
-	"github.com/sbueringer/kubectl-openstack-plugin/bazel-kubectl-openstack-plugin/external/go_sdk/src/sort"
 	"github.com/sbueringer/kubectl-openstack-plugin/pkg/kubernetes"
 	"github.com/sbueringer/kubectl-openstack-plugin/pkg/openstack"
 	"github.com/sbueringer/kubectl-openstack-plugin/pkg/output"
@@ -12,6 +11,7 @@ import (
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/tools/clientcmd/api"
 	"os"
+	"sort"
 
 	"fmt"
 	"strings"

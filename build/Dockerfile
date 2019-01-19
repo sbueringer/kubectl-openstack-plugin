@@ -11,3 +11,7 @@ RUN wget https://github.com/bazelbuild/bazel/releases/download/${BAZEL_VERSION}/
   && ./bazel-${BAZEL_VERSION}-installer-linux-x86_64.sh \
   && bazel version \
   && rm -rf /root/.cache bazel-${BAZEL_VERSION}-installer-linux-x86_64.sh
+
+RUN echo 'startup --output_base=/tmp' >> ~/.bazelrc
+
+RUN bazel version && bazel &&  echo "source /usr/local/lib/bazel/bin/bazel-complete.bash" > ~/.bashrc
