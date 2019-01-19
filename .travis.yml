@@ -5,7 +5,7 @@ dist: trusty
 
 env:
   global:
-  - BAZEL_VERSION="0.16.1"
+  - BAZEL_VERSION="0.21.0"
 
 before_script:
 - wget "https://storage.googleapis.com/bazel-apt/pool/jdk1.8/b/bazel/bazel_${BAZEL_VERSION}_amd64.deb"

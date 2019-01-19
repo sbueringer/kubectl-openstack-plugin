@@ -1,0 +1,35 @@
+apiVersion: krew.googlecontainertools.github.com/v1alpha2
+kind: Plugin
+metadata:
+  name: os
+spec:
+  version: "v0.0.6"
+  platforms:
+    - selector:
+        matchExpressions:
+          - {key: os, operator: In, values: [linux]}
+      url: https://github.com/sbueringer/kubectl-openstack-plugin/releases/download/v0.0.6/kubectl-os.tar.gz
+      # sha256sum of the file downloaded above:
+      sha256: "TODO"
+      files:
+        - from: "/kubectl-os"
+          to: "."
+      bin: "./kubectl-os"
+  shortDescription: Extends kubectl with some OpenStack commands
+  caveats: |
+    This plugin needs an environment as described here:
+    https://github.com/sbueringer/kubectl-openstack-plugin
+  description: |
+    This plugin adds a few additional commands to kubectl to query for
+    OpenStack objects. This of course only makes sense if the Kubernetes
+    cluster is running on Openstack and the user has access to OpenStack
+    credentials. Some of these commands are:
+
+    # Shows PersistentVolumes joined with the corresponding OpenStack disks
+    kubectl os volumes
+
+    # Shows Services joined with the corresponding OpenStack LBaaS objects
+    kubectl os lb
+
+    # Show Nodes joined with the corresponding OpenStack servers
+    kubectl os server
