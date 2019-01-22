@@ -217,8 +217,8 @@ func (o *VolumesOptions) runWithConfig(context string) error {
 	return nil
 }
 
-var volumeHeaders = []string{"CLUSTER", "PVC", "POD", "POD_NODE", "POD_STATUS", "CINDER_ID", "CINDER_SERVER", "CINDER_SERVER_ID", "CINDER_STATUS"}
-var volumeDebugHeaders = []string{"CLUSTER", "PVC", "PV", "POD", "POD_NODE", "POD_STATUS", "CINDER_ID", "CINDER_SERVER", "CINDER_SERVER_ID", "CINDER_STATUS", "NOVA_SERVER", "NOVA_SERVER_ID", "NOTE"}
+var volumeHeaders = []string{"CLUSTER", "PVC", "POD", "POD_NODE", "POD_STATUS", "CINDER_NAME", "CINDER_ID", "CINDER_SERVER", "CINDER_SERVER_ID", "CINDER_STATUS"}
+var volumeDebugHeaders = []string{"CLUSTER", "PVC", "PV", "POD", "POD_NODE", "POD_STATUS", "CINDER_NAME", "CINDER_ID", "CINDER_SERVER", "CINDER_SERVER_ID", "CINDER_STATUS", "NOVA_SERVER", "NOVA_SERVER_ID", "NOTE"}
 
 func (o *VolumesOptions) getPrettyVolumeList(context string, pvs map[string]v1.PersistentVolume, podMap map[string]v1.Pod, volumes map[string]volumes.Volume, server map[string]servers.Server) (string, error) {
 
@@ -287,7 +287,7 @@ func (o *VolumesOptions) getPrettyVolumeList(context string, pvs map[string]v1.P
 		var notes []string
 		showDiskIfOnlyBroken := false
 		// check error states
-		if overallNovaAttachmentCount > 2 {
+		if overallNovaAttachmentCount >= 2 {
 			showDiskIfOnlyBroken = true
 			notes = append(notes, "multiple attachments")
 		}
@@ -324,12 +324,12 @@ func (o *VolumesOptions) getPrettyVolumeList(context string, pvs map[string]v1.P
 		if (!o.onlyBroken || showDiskIfOnlyBroken) && (matchesStates || o.states == "") {
 			if o.debug {
 				lines = append(lines, []string{context, pvClaim, pvName, podName, podNode, podStatus,
-					v.ID, strings.Join(cinderServers, " "), strings.Join(cinderServerIDs, " "), v.Status,
+					v.Name, v.ID, strings.Join(cinderServers, " "), strings.Join(cinderServerIDs, " "), v.Status,
 					strings.Join(novaServers, " "), strings.Join(novaServerIDs, " "), note,
 				})
 			} else {
 				lines = append(lines, []string{context, pvClaim, podName, podNode, podStatus,
-					v.ID, strings.Join(cinderServers, " "), strings.Join(cinderServerIDs, " "), v.Status,
+					v.Name, v.ID, strings.Join(cinderServers, " "), strings.Join(cinderServerIDs, " "), v.Status,
 				})
 			}
 		}

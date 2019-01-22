@@ -16,9 +16,13 @@ type VolumesFixOptions struct {
 
 	rawConfig api.Config
 
-	args         []string
-	detachCinder bool
-	detachNova   bool
+	args                   []string
+	detachCinder           bool
+	detachNova             bool
+	force                  bool
+	attachNova             string
+	attachCinder           string
+	attachCinderMountpoint string
 
 	genericclioptions.IOStreams
 }
@@ -63,7 +67,12 @@ func NewCmdVolumesFix(streams genericclioptions.IOStreams) *cobra.Command {
 	// Cinder: https://developer.openstack.org/api-ref/block-storage/v3/index.html?expanded=detach-volume-from-server-detail#volume-actions-volumes-action
 	// https://raymii.org/s/articles/Fix_inconsistent_Openstack_volumes_and_instances_from_Cinder_and_Nova_via_the_database.html
 	cmd.Flags().BoolVarP(&o.detachCinder, "detach-cinder", "", false, "Detach the disk in Cinder. Be careful this does not remove the attachment from the server in Nova.")
+	cmd.Flags().StringVarP(&o.attachCinder, "attach-cinder", "", "", "")
+	cmd.Flags().StringVarP(&o.attachCinderMountpoint, "attach-cinder-mountpoint", "", "", "")
+
 	cmd.Flags().BoolVarP(&o.detachNova, "detach-nova", "", false, "Detach disk in Nova. This only works if the volume is really attached (so it doesn't when cinder shows no attachments to this server).")
+	cmd.Flags().StringVarP(&o.attachNova, "attach-nova", "", "", "")
+	cmd.Flags().BoolVarP(&o.force, "force", "f", false, "Currently only affects detach-cinder. Use force-detach.")
 	o.configFlags.AddFlags(cmd.Flags())
 	return cmd
 }
@@ -96,7 +105,7 @@ func (o *VolumesFixOptions) Run() error {
 	if len(contexts) == 1 {
 		err := o.runWithConfig(contexts[0])
 		if err != nil {
-			return fmt.Errorf("error listing volumes for %s: %v\n", o.rawConfig.CurrentContext, err)
+			return err
 		}
 		return nil
 	}
@@ -142,18 +151,34 @@ func (o *VolumesFixOptions) runWithConfig(context string) error {
 			}
 		}
 
-		if o.detachNova {
-			for _, srv := range srvs {
-				err := openstack.DetachVolumeNova(osProvider, volume, srv)
-				if err != nil {
-					return err
-				}
+		if o.attachCinder != "" && o.attachCinderMountpoint != "" {
+			err := openstack.AttachVolumeCinder(osProvider, volume.ID, o.attachCinder, o.attachCinderMountpoint)
+			if err != nil {
+				return err
+			}
+		}
+		if o.attachNova != "" {
+			err := openstack.AttachVolumeNova(osProvider, volume.ID, o.attachNova)
+			if err != nil {
+				return err
 			}
 		}
 		if o.detachCinder {
-			err := openstack.DetachVolumeCinder(osProvider, volume)
+			err := openstack.DetachVolumeCinder(osProvider, volume.ID, o.force)
 			if err != nil {
 				return err
+			}
+		}
+		if o.detachNova {
+			uniqueServerIDs := map[string]bool{}
+			for _, srv := range srvs {
+				uniqueServerIDs[srv.ID] = true
+			}
+			for srvID := range uniqueServerIDs {
+				err := openstack.DetachVolumeNova(osProvider, volume.ID, srvID)
+				if err != nil {
+					return err
+				}
 			}
 		}
 	}

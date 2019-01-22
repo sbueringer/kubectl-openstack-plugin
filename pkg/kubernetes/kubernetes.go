@@ -134,6 +134,12 @@ func GetPodStatus(pod v1.Pod) string {
 					if c.State.Waiting.Reason == "CreateContainerConfigError" {
 						return c.State.Waiting.Reason
 					}
+					if c.State.Waiting.Reason == "PodInitializing" {
+						return c.State.Waiting.Reason
+					}
+					if c.State.Waiting.Reason == "CrashLoopBackOff" {
+						return c.State.Waiting.Reason
+					}
 				}
 			}
 		}

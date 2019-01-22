@@ -271,13 +271,48 @@ func getAuthOptionsFromConfig(configFile, context string) (*gophercloud.AuthOpti
 	return &options, nil
 }
 
-func DetachVolumeNova(osProvider *gophercloud.ProviderClient, volume volumes.Volume, server servers.Server) error {
+func AttachVolumeNova(osProvider *gophercloud.ProviderClient, volumeID, serverID string) error {
+
+	fmt.Printf("Attaching volume %s to server %s via nova\n", volumeID, serverID)
+
 	computeClient, err := openstack.NewComputeV2(osProvider, gophercloud.EndpointOpts{})
 	if err != nil {
 		return fmt.Errorf("error creating compute client: %v", err)
 	}
 
-	url := computeClient.ServiceURL("servers", server.ID, "os-volume_attachments", volume.ID)
+	url := computeClient.ServiceURL("servers", serverID, "os-volume_attachments")
+
+	attach := &novaAttachVolume{
+		VolumeAttachment: &novaAttachment{
+			VolumeID: volumeID,
+		},
+	}
+
+	resp, err := computeClient.Post(url, attach, nil, &gophercloud.RequestOpts{OkCodes: []int{200}})
+	if err != nil {
+		return fmt.Errorf("error attaching volume: %v", err)
+	}
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("error reading response from attach volume: %v", err)
+	}
+
+	fmt.Printf("Response from attach volume from nova: %s\n", string(body))
+
+	return nil
+}
+
+func DetachVolumeNova(osProvider *gophercloud.ProviderClient, volumeID, serverID string) error {
+
+	fmt.Printf("Detaching volume %s from server %s via nova\n", volumeID, serverID)
+
+	computeClient, err := openstack.NewComputeV2(osProvider, gophercloud.EndpointOpts{})
+	if err != nil {
+		return fmt.Errorf("error creating compute client: %v", err)
+	}
+
+	url := computeClient.ServiceURL("servers", serverID, "os-volume_attachments", volumeID)
 
 	resp, err := computeClient.Delete(url, &gophercloud.RequestOpts{OkCodes: []int{202}})
 	if err != nil {
@@ -294,18 +329,38 @@ func DetachVolumeNova(osProvider *gophercloud.ProviderClient, volume volumes.Vol
 	return nil
 }
 
-func DetachVolumeCinder(osProvider *gophercloud.ProviderClient, volume volumes.Volume) error {
+type novaAttachVolume struct {
+	VolumeAttachment *novaAttachment `json:"volumeAttachment"`
+}
+
+type novaAttachment struct {
+	VolumeID string ` json:"volumeId"`
+}
+
+func DetachVolumeCinder(osProvider *gophercloud.ProviderClient, volumeID string, force bool) error {
+
+	fmt.Printf("Detaching volume %s from cinder (force: %t)\n", volumeID, force)
+
 	blockStorageClient, err := openstack.NewBlockStorageV3(osProvider, gophercloud.EndpointOpts{})
 	if err != nil {
 		return fmt.Errorf("error creating volume client: %v", err)
 	}
 
-	url := blockStorageClient.ServiceURL("volumes", volume.ID, "action")
+	url := blockStorageClient.ServiceURL("volumes", volumeID, "action")
 
-	resp, err := blockStorageClient.Post(url, &detachVolume{
-		OsDetach: &attachment{
-		},
-	}, nil, &gophercloud.RequestOpts{OkCodes: []int{202},})
+	var detach interface{}
+	if force {
+		detach = &cinderForceDetachVolume{
+			OsDetach: &cinderDetachment{
+			},
+		}
+	} else {
+		detach = &cinderDetachVolume{
+			OsDetach: &cinderDetachment{
+			},
+		}
+	}
+	resp, err := blockStorageClient.Post(url, detach, nil, &gophercloud.RequestOpts{OkCodes: []int{202},})
 	if err != nil {
 		return fmt.Errorf("error deleting volume from cinder: %v", err)
 	}
@@ -320,10 +375,56 @@ func DetachVolumeCinder(osProvider *gophercloud.ProviderClient, volume volumes.V
 	return nil
 }
 
-type detachVolume struct {
-	OsDetach *attachment `json:"os-detach"`
+func AttachVolumeCinder(osProvider *gophercloud.ProviderClient, volumeID, serverID, mountpoint string) error {
+
+	fmt.Printf("Attaching volume %s to server %s via cinder\n", volumeID, serverID)
+
+	blockStorageClient, err := openstack.NewBlockStorageV3(osProvider, gophercloud.EndpointOpts{})
+	if err != nil {
+		return fmt.Errorf("error creating volume client: %v", err)
+	}
+
+	url := blockStorageClient.ServiceURL("volumes", volumeID, "action")
+
+	attach := &cinderAttachVolume{
+		OsAttach: &cinderAttachment{
+			InstanceUUID: serverID,
+			Mountpoint:   mountpoint,
+		},
+	}
+
+	resp, err := blockStorageClient.Post(url, attach, nil, &gophercloud.RequestOpts{OkCodes: []int{202}})
+	if err != nil {
+		return fmt.Errorf("error attaching volume: %v", err)
+	}
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("error reading response from attach volume: %v", err)
+	}
+
+	fmt.Printf("Response from attach volume from cinder: %s\n", string(body))
+
+	return nil
 }
 
-type attachment struct {
+type cinderForceDetachVolume struct {
+	OsDetach *cinderDetachment `json:"os-force_detach"`
+}
+
+type cinderDetachVolume struct {
+	OsDetach *cinderDetachment `json:"os-detach"`
+}
+
+type cinderDetachment struct {
 	AttachmentID string ` json:"attachment_id"`
+}
+
+type cinderAttachVolume struct {
+	OsAttach *cinderAttachment `json:"os-attach"`
+}
+
+type cinderAttachment struct {
+	InstanceUUID string ` json:"instance_uuid"`
+	Mountpoint   string ` json:"mountpoint"`
 }
