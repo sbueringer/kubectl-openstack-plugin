@@ -220,7 +220,7 @@ func (o *VolumesOptions) runWithConfig(context string) error {
 var volumeHeaders = []string{"CLUSTER", "PVC", "POD", "POD_NODE", "POD_STATUS", "CINDER_NAME", "CINDER_ID", "CINDER_SERVER", "CINDER_SERVER_ID", "CINDER_STATUS"}
 var volumeDebugHeaders = []string{"CLUSTER", "PVC", "PV", "POD", "POD_NODE", "POD_STATUS", "CINDER_NAME", "CINDER_ID", "CINDER_SERVER", "CINDER_SERVER_ID", "CINDER_STATUS", "NOVA_SERVER", "NOVA_SERVER_ID", "NOTE"}
 
-func (o *VolumesOptions) getPrettyVolumeList(context string, pvs map[string]v1.PersistentVolume, podMap map[string]v1.Pod, volumes map[string]volumes.Volume, server map[string]servers.Server) (string, error) {
+func (o *VolumesOptions) getPrettyVolumeList(context string, pvs map[string]v1.PersistentVolume, podMap map[string][]v1.Pod, volumes map[string]volumes.Volume, server map[string]servers.Server) (string, error) {
 
 	var header []string
 	if !o.noHeader {
@@ -269,7 +269,8 @@ func (o *VolumesOptions) getPrettyVolumeList(context string, pvs map[string]v1.P
 		if pv, ok := pvs[v.ID]; ok {
 			pvName = pv.Name
 			pvClaim = fmt.Sprintf("%s/%s", pv.Spec.ClaimRef.Namespace, pv.Spec.ClaimRef.Name)
-			if pod, ok := podMap[pvClaim]; ok {
+			if pods, ok := podMap[pvClaim]; ok {
+				pod := kubernetes.FindNotEvictedPod(pods)
 				podName = pod.Name
 				podStatus = kubernetes.GetPodStatus(pod)
 				podNode = pod.Spec.NodeName

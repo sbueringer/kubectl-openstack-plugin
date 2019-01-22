@@ -66,17 +66,22 @@ func GetPersistentVolumes(kubeClient *kubernetes.Clientset) (map[string]v1.Persi
 	return pvMap, nil
 }
 
-func GetPodsByPVC(kubeClient *kubernetes.Clientset) (map[string]v1.Pod, error) {
+func GetPodsByPVC(kubeClient *kubernetes.Clientset) (map[string][]v1.Pod, error) {
 	pods, err := kubeClient.CoreV1().Pods("").List(metav1.ListOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("error getting pods: %v", err)
 	}
-	podMap := map[string]v1.Pod{}
+	podMap := map[string][]v1.Pod{}
 	for _, pod := range pods.Items {
 		for _, volume := range pod.Spec.Volumes {
 			if volume.PersistentVolumeClaim != nil && volume.PersistentVolumeClaim.ClaimName != "" {
 				pvcName := fmt.Sprintf("%s/%s", pod.Namespace, volume.PersistentVolumeClaim.ClaimName)
-				podMap[pvcName] = pod
+				pods, ok := podMap[pvcName]
+				if !ok {
+					pods = []v1.Pod{}
+				}
+				pods = append(pods, pod)
+				podMap[pvcName] = pods
 			}
 		}
 	}
@@ -110,6 +115,18 @@ func GetMatchingContexts(config api.Config, context string) []string {
 	return ctxs
 }
 
+func FindNotEvictedPod(pods []v1.Pod) v1.Pod {
+	if len(pods) == 1 {
+		return pods[0]
+	}
+
+	for _, p := range pods {
+		if GetPodStatus(p) != "Evicted" {
+			return p
+		}
+	}
+	return pods[1]
+}
 
 func GetPodStatus(pod v1.Pod) string {
 	if pod.Status.Phase == v1.PodFailed && pod.Status.Reason == "Evicted" {
