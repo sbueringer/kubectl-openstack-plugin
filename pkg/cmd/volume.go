@@ -320,6 +320,10 @@ func (o *VolumesOptions) getPrettyVolumeList(context string, pvs map[string]v1.P
 			showDiskIfOnlyBroken = true
 			notes = append(notes, "attached server not found")
 		}
+		if pvClaim == "-" && pvName == "-" && podName == "-" && strings.HasPrefix(v.Name, "kubernetes-dynamic-pvc")  {
+			showDiskIfOnlyBroken = true
+			notes = append(notes, "kubernetes disk has no pv/pvc/pod")
+		}
 		note := strings.Join(notes, ", ")
 
 		if (!o.onlyBroken || showDiskIfOnlyBroken) && (matchesStates || o.states == "") {
