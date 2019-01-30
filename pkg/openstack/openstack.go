@@ -278,6 +278,38 @@ func getAuthOptionsFromConfig(configFile, context string) (*gophercloud.AuthOpti
 	return &options, nil
 }
 
+func GetVolumeAttachmentsForServerNova(osProvider *gophercloud.ProviderClient, servers map[string]servers.Server) (map[string]*NovaVolumeAttachments, error) {
+	attachments := map[string]*NovaVolumeAttachments{}
+
+	for server, _ := range servers {
+		volumeAttachments, err := GetVolumeAttachmentsNova(osProvider, server)
+		if err != nil {
+			return nil, err
+		}
+		attachments[server] = volumeAttachments
+	}
+
+	return attachments, nil
+}
+
+func GetVolumeAttachmentsNova(osProvider *gophercloud.ProviderClient, serverID string) (*NovaVolumeAttachments, error) {
+
+	computeClient, err := openstack.NewComputeV2(osProvider, gophercloud.EndpointOpts{})
+	if err != nil {
+		return nil, fmt.Errorf("error creating compute client: %v", err)
+	}
+
+	url := computeClient.ServiceURL("servers", serverID, "os-volume_attachments")
+
+	attachments := &NovaVolumeAttachments{}
+	_, err = computeClient.Get(url, attachments, &gophercloud.RequestOpts{OkCodes: []int{200}})
+	if err != nil {
+		return nil, fmt.Errorf("error attaching volume: %v", err)
+	}
+
+	return attachments, nil
+}
+
 func AttachVolumeNova(osProvider *gophercloud.ProviderClient, volumeID, serverID string) error {
 
 	fmt.Printf("Attaching volume %s to server %s via nova\n", volumeID, serverID)
@@ -336,11 +368,18 @@ func DetachVolumeNova(osProvider *gophercloud.ProviderClient, volumeID, serverID
 	return nil
 }
 
+type NovaVolumeAttachments struct {
+	VolumeAttachments []*novaAttachment `json:"volumeAttachments"`
+}
+
 type novaAttachVolume struct {
 	VolumeAttachment *novaAttachment `json:"volumeAttachment"`
 }
 
 type novaAttachment struct {
+	ID       string ` json:"id"`
+	Device   string ` json:"device"`
+	ServerID string ` json:"serverId"`
 	VolumeID string ` json:"volumeId"`
 }
 

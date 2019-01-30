@@ -187,7 +187,12 @@ func (o *VolumesOptions) runWithConfig(context string) error {
 		return fmt.Errorf("error getting servers from OpenStack: %v", err)
 	}
 
-	output, err := o.getPrettyVolumeList(context, pvMap, podMap, volumesMap, serversMap)
+	attachmentsMap, err := openstack.GetVolumeAttachmentsForServerNova(osProvider, serversMap)
+	if err != nil {
+		return fmt.Errorf("error getting attachments from OpenStack: %v", err)
+	}
+
+	output, err := o.getPrettyVolumeList(context, pvMap, podMap, volumesMap, serversMap, attachmentsMap)
 	if err != nil {
 		return fmt.Errorf("error creating output: %v", err)
 	}
@@ -220,7 +225,7 @@ func (o *VolumesOptions) runWithConfig(context string) error {
 var volumeHeaders = []string{"CLUSTER", "PVC", "POD", "POD_NODE", "POD_STATUS", "CINDER_NAME", "SIZE", "CINDER_ID", "CINDER_SERVER", "CINDER_SERVER_ID", "CINDER_STATUS"}
 var volumeDebugHeaders = []string{"CLUSTER", "PVC", "PV", "POD", "POD_NODE", "POD_STATUS", "CINDER_NAME", "SIZE", "CINDER_ID", "CINDER_SERVER", "CINDER_SERVER_ID", "CINDER_STATUS", "NOVA_SERVER", "NOVA_SERVER_ID", "NOTE"}
 
-func (o *VolumesOptions) getPrettyVolumeList(context string, pvs map[string]v1.PersistentVolume, podMap map[string][]v1.Pod, volumes map[string]volumes.Volume, server map[string]servers.Server) (string, error) {
+func (o *VolumesOptions) getPrettyVolumeList(context string, pvs map[string]v1.PersistentVolume, podMap map[string][]v1.Pod, volumes map[string]volumes.Volume, server map[string]servers.Server, attachmentsMap map[string]*openstack.NovaVolumeAttachments) (string, error) {
 
 	var header []string
 	if !o.noHeader {
@@ -248,15 +253,15 @@ func (o *VolumesOptions) getPrettyVolumeList(context string, pvs map[string]v1.P
 		overallNovaAttachmentCount := 0
 		for _, srv := range server {
 			count := 0
-			for _, attachedVolume := range srv.AttachedVolumes {
-				for key, volumeID := range attachedVolume {
-					if key == "id" && volumeID == v.ID {
-						count++
-					}
+			var devices []string
+			for _, attachedVolume := range attachmentsMap[srv.ID].VolumeAttachments {
+				if attachedVolume.VolumeID == v.ID {
+					count++
+					devices = append(devices, attachedVolume.Device)
 				}
 			}
 			if count > 0 {
-				novaServers = append(novaServers, fmt.Sprintf(" %dx %s", count, srv.Name))
+				novaServers = append(novaServers, fmt.Sprintf(" %dx %s:%v", count, srv.Name, devices))
 				novaServerIDs = append(novaServerIDs, fmt.Sprintf(" %dx %s", count, srv.ID))
 				overallNovaAttachmentCount += count
 			}
