@@ -158,6 +158,9 @@ func GetPodStatus(pod v1.Pod) string {
 						return c.State.Waiting.Reason
 					}
 				}
+				if c.State.Terminated != nil {
+					return "Terminating"
+				}
 			}
 		}
 	}

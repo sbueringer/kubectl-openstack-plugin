@@ -180,26 +180,33 @@ func createOpenStackProviderClient(context string) (*gophercloud.ProviderClient,
 }
 
 func getAuthOptionsFromEnv() (*gophercloud.AuthOptions, error) {
-	username := os.Getenv("OS_USERNAME")
-	if username == "" {
+	authOptions := &gophercloud.AuthOptions{}
+
+	authOptions.Username = os.Getenv("OS_USERNAME")
+	if authOptions.Username == "" {
 		return nil, fmt.Errorf("could not get username from env var OS_USERNAME")
 	}
-	password := os.Getenv("OS_PASSWORD")
-	if password == "" {
+	authOptions.Password = os.Getenv("OS_PASSWORD")
+	if authOptions.Password == "" {
 		return nil, fmt.Errorf("could not get password from env var OS_PASSWORD")
 	}
-	projectName := os.Getenv("OS_PROJECT_NAME")
-	if projectName == "" {
-		projectName = os.Getenv("OS_TENANT_NAME")
+	authOptions.TenantName = os.Getenv("OS_PROJECT_NAME")
+	if authOptions.TenantName == "" {
+		authOptions.TenantName = os.Getenv("OS_TENANT_NAME")
 	}
-	if projectName == "" {
-		return nil, fmt.Errorf("could not get projectName from either env var OS_PROJECT_NAME or OS_TENANT_NAME")
+	authOptions.TenantID = os.Getenv("OS_PROJECT_ID")
+	if authOptions.TenantID == "" {
+		authOptions.TenantID = os.Getenv("OS_TENANT_ID")
 	}
-	authUrl := os.Getenv("OS_AUTH_URL")
-	if authUrl == "" {
+
+	if authOptions.TenantName == "" || authOptions.TenantID == "" {
+		return nil, fmt.Errorf("could not get projectName or projectID from env vars OS_PROJECT_NAME, OS_TENANT_NAME, OS_PROJECT_ID or OS_TENANT_ID")
+	}
+	authOptions.IdentityEndpoint = os.Getenv("OS_AUTH_URL")
+	if authOptions.IdentityEndpoint == "" {
 		return nil, fmt.Errorf("could not get authUrl from env var OS_AUTH_URL")
 	}
-	return &gophercloud.AuthOptions{IdentityEndpoint: authUrl, TenantName: projectName, Username: username, Password: password}, nil
+	return authOptions, nil
 }
 
 //clouds:
@@ -351,16 +358,14 @@ func DetachVolumeCinder(osProvider *gophercloud.ProviderClient, volumeID string,
 	var detach interface{}
 	if force {
 		detach = &cinderForceDetachVolume{
-			OsDetach: &cinderDetachment{
-			},
+			OsDetach: &cinderDetachment{},
 		}
 	} else {
 		detach = &cinderDetachVolume{
-			OsDetach: &cinderDetachment{
-			},
+			OsDetach: &cinderDetachment{},
 		}
 	}
-	resp, err := blockStorageClient.Post(url, detach, nil, &gophercloud.RequestOpts{OkCodes: []int{202},})
+	resp, err := blockStorageClient.Post(url, detach, nil, &gophercloud.RequestOpts{OkCodes: []int{202}})
 	if err != nil {
 		return fmt.Errorf("error deleting volume from cinder: %v", err)
 	}
