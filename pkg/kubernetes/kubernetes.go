@@ -57,11 +57,16 @@ func GetPersistentVolumes(kubeClient *kubernetes.Clientset) (map[string]v1.Persi
 	}
 	pvMap := map[string]v1.PersistentVolume{}
 	for _, pv := range pvs.Items {
-		if pv.Spec.Cinder == nil {
+		if pv.Spec.Cinder != nil {
 			// TODO log(skipping pv because it is no cinder volume)
+			pvMap[pv.Spec.Cinder.VolumeID] = pv
 			continue
 		}
-		pvMap[pv.Spec.Cinder.VolumeID] = pv
+		if pv.Spec.CSI != nil {
+			// TODO log(skipping pv because it is no cinder volume)
+			pvMap[pv.Spec.CSI.VolumeHandle] = pv
+			continue
+		}
 	}
 	return pvMap, nil
 }
