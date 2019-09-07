@@ -377,10 +377,10 @@ type novaAttachVolume struct {
 }
 
 type novaAttachment struct {
-	ID       string ` json:"id"`
-	Device   string ` json:"device"`
-	ServerID string ` json:"serverId"`
-	VolumeID string ` json:"volumeId"`
+	ID       string ` json:"id,omitempty"`
+	Device   string ` json:"device,omitempty"`
+	ServerID string ` json:"serverId,omitempty"`
+	VolumeID string ` json:"volumeId,omitempty"`
 }
 
 func DetachVolumeCinder(osProvider *gophercloud.ProviderClient, volumeID string, force bool) error {

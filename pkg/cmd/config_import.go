@@ -87,6 +87,7 @@ func (o *ImportConfigOptions) Run() error {
 	tenantNameRegEx := regexp.MustCompile("OS_TENANT_NAME=['\"](.*)['\"]")
 	projectIDRegEx := regexp.MustCompile("OS_PROJECT_ID=['\"](.*)['\"]")
 	authUrlRegEx := regexp.MustCompile("OS_AUTH_URL=['\"](.*)['\"]")
+	caCertRegEx := regexp.MustCompile("OS_CACERT=['\"](.*)['\"]")
 
 	clouds := clouds{}
 	clouds.Clouds = map[string]cloud{}
@@ -108,6 +109,7 @@ func (o *ImportConfigOptions) Run() error {
 			tenantNameMatch := tenantNameRegEx.FindSubmatch(content)
 			projectIDMatch := projectIDRegEx.FindSubmatch(content)
 			authUrlMatch := authUrlRegEx.FindSubmatch(content)
+			caCertMatch := caCertRegEx.FindSubmatch(content)
 
 			if len(usernameMatch) != 2 {
 				return fmt.Errorf("error matching username regex")
@@ -138,9 +140,15 @@ func (o *ImportConfigOptions) Run() error {
 				auth.DomainName = string(userDomainMatch[1])
 			}
 
-			clouds.Clouds[string(context)] = cloud{
+			newCloud := cloud{
 				Auth: auth,
 			}
+			if len(caCertMatch) != 2 {
+				newCloud.Verify = false
+			} else {
+				newCloud.CaCert = string(caCertMatch[1])
+			}
+			clouds.Clouds[string(context)] = newCloud
 		}
 	}
 
@@ -162,7 +170,9 @@ type clouds struct {
 	Clouds map[string]cloud `yaml:"clouds"`
 }
 type cloud struct {
-	Auth cloudAuth `yaml:"auth"`
+	Auth   cloudAuth `yaml:"auth"`
+	Verify bool      `yaml:"verify"`
+	CaCert string    `yaml:"cacert"`
 }
 
 type cloudAuth struct {
