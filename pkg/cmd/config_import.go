@@ -146,6 +146,7 @@ func (o *ImportConfigOptions) Run() error {
 			if len(caCertMatch) != 2 {
 				newCloud.Verify = false
 			} else {
+				newCloud.Verify = true
 				newCloud.CaCert = string(caCertMatch[1])
 			}
 			clouds.Clouds[string(context)] = newCloud
@@ -172,7 +173,7 @@ type clouds struct {
 type cloud struct {
 	Auth   cloudAuth `yaml:"auth"`
 	Verify bool      `yaml:"verify"`
-	CaCert string    `yaml:"cacert"`
+	CaCert string    `yaml:"cacert,omitempty"`
 }
 
 type cloudAuth struct {
