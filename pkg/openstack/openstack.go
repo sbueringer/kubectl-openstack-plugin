@@ -209,6 +209,24 @@ func getAuthOptionsFromEnv() (*gophercloud.AuthOptions, error) {
 	return authOptions, nil
 }
 
+type clouds struct {
+	Clouds map[string]cloud `yaml:"clouds"`
+}
+type cloud struct {
+	Auth   cloudAuth `yaml:"auth"`
+	Verify bool      `yaml:"verify"`
+	CaCert string    `yaml:"cacert,omitempty"`
+}
+
+type cloudAuth struct {
+	Username    string `yaml:"username"`
+	Password    string `yaml:"password"`
+	DomainName  string `yaml:"domain_name"`
+	AuthUrl     string `yaml:"auth_url"`
+	ProjectName string `yaml:"project_name"`
+	ProjectID   string `yaml:"project_id"`
+}
+
 //clouds:
 //	devstack:
 //		auth:
@@ -223,65 +241,48 @@ func getAuthOptionsFromConfig(configFile, context string) (*gophercloud.AuthOpti
 		return nil, fmt.Errorf("error reading config file %s: %v", configFile, err)
 	}
 
-	var configYAML map[string]map[string]map[string]map[string]string
-	err = yaml.Unmarshal(content, &configYAML)
+	var config clouds
+	err = yaml.Unmarshal(content, &config)
 	if err != nil {
 		return nil, fmt.Errorf("error parsing config file %s: %v", configFile, err)
 	}
 
-	cloudsYAML, ok := configYAML["clouds"]
-	if !ok {
-		return nil, fmt.Errorf("could not find clouds in config file %s", configFile)
-	}
-
-	cloudYAML, ok := cloudsYAML[context]
+	cloud, ok := config.Clouds[context]
 	if !ok {
 		return nil, fmt.Errorf("could not find cloud %s in config file %s", context, configFile)
 	}
 
-	authYAML, ok := cloudYAML["auth"]
-	if !ok {
-		return nil, fmt.Errorf("could not find auth in cloud %s in config file %s", context, configFile)
-	}
-
-	authUrl, ok := authYAML["auth_url"]
-	if !ok {
+	if cloud.Auth.AuthUrl == "" {
 		return nil, fmt.Errorf("could not find auth_url in cloud %s in config file %s", context, configFile)
 	}
 
-	projectName, _ := authYAML["project_name"]
-	projectID, _ := authYAML["project_id"]
+	projectName := cloud.Auth.ProjectName
+	projectID := cloud.Auth.ProjectID
 	if projectName == "" && projectID == "" {
 		return nil, fmt.Errorf("could not find project_name or project_id in cloud %s in config file %s", context, configFile)
 	}
 
-	username, ok := authYAML["username"]
-	if !ok {
+	if cloud.Auth.Username == "" {
 		return nil, fmt.Errorf("could not find username in cloud %s in config file %s", context, configFile)
 	}
-	password, ok := authYAML["password"]
-	if !ok {
+	if cloud.Auth.Password == "" {
 		return nil, fmt.Errorf("could not find password in cloud %s in config file %s", context, configFile)
 	}
-	domainName, _ := authYAML["domain_name"]
-
-	options := gophercloud.AuthOptions{IdentityEndpoint: authUrl, Username: username, Password: password}
+	options := gophercloud.AuthOptions{IdentityEndpoint: cloud.Auth.AuthUrl, Username: cloud.Auth.Username, Password: cloud.Auth.Password}
 	if projectName != "" {
 		options.TenantName = projectName
 	}
 	if projectID != "" {
 		options.TenantID = projectID
 	}
-	if domainName != "" {
-		options.DomainName = domainName
-	}
+	options.DomainName = cloud.Auth.DomainName
 	return &options, nil
 }
 
 func GetVolumeAttachmentsForServerNova(osProvider *gophercloud.ProviderClient, servers map[string]servers.Server) (map[string]*NovaVolumeAttachments, error) {
 	attachments := map[string]*NovaVolumeAttachments{}
 
-	for server, _ := range servers {
+	for server := range servers {
 		volumeAttachments, err := GetVolumeAttachmentsNova(osProvider, server)
 		if err != nil {
 			return nil, err
