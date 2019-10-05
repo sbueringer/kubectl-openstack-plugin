@@ -15,7 +15,7 @@ based on [k8s.io/sample-cli-plugin](https://github.com/kubernetes/kubernetes/tre
 
 Just execute the following and make sure `$GOPATH/bin` is in your `$PATH`:
 ````
-go get  github.com/sbueringer/kubectl-openstack-plugin/cmd/kubectl-openstack
+GO111MODULE=on go get github.com/sbueringer/kubectl-openstack-plugin/cmd/kubectl-openstack
 ````
 
 ## Installation via download

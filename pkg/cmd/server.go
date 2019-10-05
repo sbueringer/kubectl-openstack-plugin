@@ -51,7 +51,7 @@ var (
 // NewCmdServer creates the server cmd
 func NewCmdServer(streams genericclioptions.IOStreams) *cobra.Command {
 	o := &ServerOptions{
-		configFlags: genericclioptions.NewConfigFlags(),
+		configFlags: genericclioptions.NewConfigFlags(true),
 		IOStreams:   streams,
 	}
 	cmd := &cobra.Command{

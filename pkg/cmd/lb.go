@@ -46,7 +46,7 @@ var (
 // NewCmdLB creates the lb cmd
 func NewCmdLB(streams genericclioptions.IOStreams) *cobra.Command {
 	o := &LBOptions{
-		configFlags: genericclioptions.NewConfigFlags(),
+		configFlags: genericclioptions.NewConfigFlags(true),
 		IOStreams:   streams,
 	}
 	cmd := &cobra.Command{

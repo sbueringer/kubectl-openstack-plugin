@@ -40,7 +40,7 @@ var (
 //TODO
 func NewCmdVolumesFix(streams genericclioptions.IOStreams) *cobra.Command {
 	o := &VolumesFixOptions{
-		configFlags: genericclioptions.NewConfigFlags(),
+		configFlags: genericclioptions.NewConfigFlags(true),
 		IOStreams:   streams,
 	}
 	cmd := &cobra.Command{

@@ -20,7 +20,7 @@ func NewCmdOpenStack(streams genericclioptions.IOStreams) *cobra.Command {
 			return fmt.Errorf("subcommand is mandatory")
 		},
 	}
-	genericclioptions.NewConfigFlags().AddFlags(cmd.Flags())
+	genericclioptions.NewConfigFlags(true).AddFlags(cmd.Flags())
 
 	cmd.AddCommand(NewCmdLB(streams))
 	cmd.AddCommand(NewCmdServer(streams))

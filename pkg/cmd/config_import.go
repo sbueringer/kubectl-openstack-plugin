@@ -32,7 +32,7 @@ var (
 
 func NewCmdImportConfig(streams genericclioptions.IOStreams) *cobra.Command {
 	o := &ImportConfigOptions{
-		configFlags: genericclioptions.NewConfigFlags(),
+		configFlags: genericclioptions.NewConfigFlags(true),
 		IOStreams:   streams,
 	}
 	cmd := &cobra.Command{

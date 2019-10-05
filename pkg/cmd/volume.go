@@ -50,7 +50,7 @@ var (
 // NewCmdVolumes creates the volumes cmd
 func NewCmdVolumes(streams genericclioptions.IOStreams) *cobra.Command {
 	o := &VolumesOptions{
-		configFlags: genericclioptions.NewConfigFlags(),
+		configFlags: genericclioptions.NewConfigFlags(true),
 		IOStreams:   streams,
 	}
 	cmd := &cobra.Command{
