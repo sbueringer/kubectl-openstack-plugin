@@ -7,8 +7,8 @@ go_library(
     visibility = ["//visibility:private"],
     deps = [
         "//pkg/cmd:go_default_library",
-        "//vendor/github.com/spf13/pflag:go_default_library",
-        "//vendor/k8s.io/cli-runtime/pkg/genericclioptions:go_default_library",
+        "@com_github_spf13_pflag//:go_default_library",
+        "@io_k8s_cli_runtime//pkg/genericclioptions:go_default_library",
     ],
 )
 
