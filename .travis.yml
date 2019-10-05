@@ -1,39 +1,19 @@
-go_import_path: github.com/sbueringer/kubectl-openstack-plugin
 
 sudo: required
 dist: trusty
 
-env:
-  global:
-  - BAZEL_VERSION="0.21.0"
-
-before_script:
-- wget "https://storage.googleapis.com/bazel-apt/pool/jdk1.8/b/bazel/bazel_${BAZEL_VERSION}_amd64.deb"
-- sudo dpkg --force-all -i bazel_${BAZEL_VERSION}_amd64.deb
-- sudo apt-get install moreutils -y
-
 script:
 - ./build.sh
-#TODO enable again- go test -race -coverprofile=coverage.txt -covermode=atomic
 
-cache:
-  directories:
-  - $HOME/.bzrepos
-
-
-after_success:
-- bash <(curl -s https://codecov.io/bash)
 
 before_deploy:
-- cp bazel-bin/cmd/kubectl-openstack/linux_amd64_pure_stripped/kubectl-openstack /tmp/kubectl-openstack
-- cp bazel-bin/cmd/kubectl-openstack/kubectl-openstack_tar.tar.gz /tmp/kubectl-openstack.tar.gz
+- cp ./kubectl-openstack /tmp/kubectl-openstack
 
 deploy:
 - provider: releases
   api_key: $GITHUB_RELEASE_TOKEN
   file:
   - /tmp/kubectl-openstack
-  - /tmp/kubectl-openstack.tar.gz
   overwrite: true
   skip_cleanup: true
   on:

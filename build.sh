@@ -1,3 +1,6 @@
 #!/usr/bin/env bash
 
-docker run -it -w /github/workspace -v $(pwd):/github/workspace -v /tmp:/tmp --entrypoint bazel l.gcr.io/google/bazel:0.29.1 build //cmd/kubectl-openstack:kubectl-openstack //cmd/kubectl-openstack:kubectl-openstack_tar
+WORKDIR=`echo $0 | sed -e s/build.sh//`
+cd ${WORKDIR}
+
+docker run --rm -v "$PWD":/usr/src/github.com/sbueringer/kubectl-openstack-plugin -w /usr/src/github.com/sbueringer/kubectl-openstack-plugin golang:1.13.1 go build -v -o ./kubectl-openstack ./cmd/kubectl-openstack

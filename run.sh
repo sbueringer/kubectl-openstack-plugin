@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
 
-cd ${GITHUB_HOME}/kubectl-openstack-plugin
+cd ${GITHUB_HOME}/sbueringer/kubectl-openstack-plugin
 
 if [ "${KUBECTL_PLUGINS_GLOBAL_FLAG_V}" == "8" ]
 then
     env | grep KUBE
 fi
 
-bazel run //:gazelle &>/dev/null
-bazel run //cmd/kubectl-os:kubectl-os -- "$@"
+go run ./cmd/kubectl-openstack  "$@"

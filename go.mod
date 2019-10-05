@@ -1,7 +1,6 @@
 module github.com/sbueringer/kubectl-openstack-plugin
 
 require (
-	github.com/Azure/go-autorest v11.1.2+incompatible // indirect
 	github.com/gogo/protobuf v1.3.0 // indirect
 	github.com/googleapis/gnostic v0.3.1 // indirect
 	github.com/gophercloud/gophercloud v0.4.0
