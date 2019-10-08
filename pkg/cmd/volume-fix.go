@@ -143,10 +143,8 @@ func (o *VolumesFixOptions) runWithConfig(context string) error {
 		var srvs []servers.Server
 		for _, srv := range serversMap {
 			for _, attachedVolume := range srv.AttachedVolumes {
-				for key, volumeID := range attachedVolume {
-					if key == "id" && volumeID == vID {
-						srvs = append(srvs, srv)
-					}
+				if attachedVolume.ID == vID {
+					srvs = append(srvs, srv)
 				}
 			}
 		}

@@ -238,12 +238,8 @@ func (o *ServerOptions) getPrettyServerList(context string, nodes map[string]v1.
 		var attachedVolumes []string
 		overallNovaAttachmentCount := 0
 		for _, attachedVolume := range s.AttachedVolumes {
-			for key, volumeID := range attachedVolume {
-				if key == "id" {
-					attachmentCount[volumeID]++
-					overallNovaAttachmentCount++
-				}
-			}
+			attachmentCount[attachedVolume.ID]++
+			overallNovaAttachmentCount++
 		}
 		for a := range attachmentCount {
 			attachments = append(attachments, a)

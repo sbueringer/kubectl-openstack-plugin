@@ -3,7 +3,7 @@ module github.com/sbueringer/kubectl-openstack-plugin
 require (
 	github.com/gogo/protobuf v1.3.0 // indirect
 	github.com/googleapis/gnostic v0.3.1 // indirect
-	github.com/gophercloud/gophercloud v0.4.0
+	github.com/gophercloud/gophercloud v0.4.1-0.20191008023454-1effcf51002d
 	github.com/mattn/go-runewidth v0.0.3 // indirect
 	github.com/olekukonko/tablewriter v0.0.0-20180912035003-be2c049b30cc
 	github.com/spf13/cobra v0.0.5
@@ -16,7 +16,5 @@ require (
 	k8s.io/client-go v0.0.0-20191005115821-b1fd78950135
 	k8s.io/utils v0.0.0-20190923111123-69764acb6e8e // indirect
 )
-
-replace github.com/gophercloud/gophercloud v0.4.0 => github.com/sbueringer/gophercloud v0.4.0
 
 go 1.13
