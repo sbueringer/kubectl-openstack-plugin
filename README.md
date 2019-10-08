@@ -15,7 +15,7 @@ based on [k8s.io/sample-cli-plugin](https://github.com/kubernetes/kubernetes/tre
 
 Just execute the following and make sure `$GOPATH/bin` is in your `$PATH`:
 ````
-GO111MODULE=on go get github.com/sbueringer/kubectl-openstack-plugin/cmd/kubectl-openstack
+GO111MODULE=on go get github.com/sbueringer/kubectl-openstack-plugin/cmd/kubectl-openstack@v0.0.15
 ````
 
 Note: this currently only works without GO111MODULE=on because a replace directive for gophercloud is used. (see also: https://github.com/golang/go/issues/30354)
