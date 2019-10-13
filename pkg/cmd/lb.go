@@ -110,7 +110,7 @@ func (o *LBOptions) Run() error {
 	// multiple tenants
 	// disable header here and print them once if required
 	if !o.noHeader {
-		output, err := output.ConvertToTable(output.Table{volumeHeaders, [][]string{}, []int{0, 1}, o.output})
+		output, err := output.ConvertToTable(output.Table{defaultHeaders, [][]string{}, []int{0, 1}, o.output})
 		if err != nil {
 			return fmt.Errorf("error creating output: %v", err)
 		}

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/gophercloud/gophercloud/openstack/blockstorage/v3/volumes"
 	"github.com/gophercloud/gophercloud/openstack/compute/v2/servers"
 	"github.com/sbueringer/kubectl-openstack-plugin/pkg/kubernetes"
 	"github.com/sbueringer/kubectl-openstack-plugin/pkg/openstack"
@@ -67,11 +68,11 @@ func NewCmdVolumesFix(streams genericclioptions.IOStreams) *cobra.Command {
 	// Cinder: https://developer.openstack.org/api-ref/block-storage/v3/index.html?expanded=detach-volume-from-server-detail#volume-actions-volumes-action
 	// https://raymii.org/s/articles/Fix_inconsistent_Openstack_volumes_and_instances_from_Cinder_and_Nova_via_the_database.html
 	cmd.Flags().BoolVarP(&o.detachCinder, "detach-cinder", "", false, "Detach the disk in Cinder. Be careful this does not remove the attachment from the server in Nova.")
-	cmd.Flags().StringVarP(&o.attachCinder, "attach-cinder", "", "", "")
+	cmd.Flags().StringVarP(&o.attachCinder, "attach-cinder", "", "", "server to which the volume to")
 	cmd.Flags().StringVarP(&o.attachCinderMountpoint, "attach-cinder-mountpoint", "", "", "")
 
 	cmd.Flags().BoolVarP(&o.detachNova, "detach-nova", "", false, "Detach disk in Nova. This only works if the volume is really attached (so it doesn't when cinder shows no attachments to this server).")
-	cmd.Flags().StringVarP(&o.attachNova, "attach-nova", "", "", "")
+	cmd.Flags().StringVarP(&o.attachNova, "attach-nova", "", "", "server to which the volume to")
 	cmd.Flags().BoolVarP(&o.force, "force", "f", false, "Currently only affects detach-cinder. Use force-detach.")
 	o.configFlags.AddFlags(cmd.Flags())
 	return cmd
@@ -133,8 +134,18 @@ func (o *VolumesFixOptions) runWithConfig(context string) error {
 		return fmt.Errorf("error getting servers from OpenStack: %v", err)
 	}
 
+	// resolve volume ids, if id is not of expected lenght try to find via name
+	var vIDs []string
+	for _, arg := range o.args {
+		vID, err := resolveVolume(volumesMap, arg)
+		if err != nil {
+			return fmt.Errorf("error finding volume %v: %v", arg, err)
+		}
+		vIDs = append(vIDs, vID)
+	}
+
 	// loop over volumes
-	for _, vID := range o.args {
+	for _, vID := range vIDs {
 		volume, ok := volumesMap[vID]
 		if !ok {
 			fmt.Printf("Volume with id %s not found\n", vID)
@@ -149,24 +160,36 @@ func (o *VolumesFixOptions) runWithConfig(context string) error {
 			}
 		}
 
+		// attach via Cinder
 		if o.attachCinder != "" && o.attachCinderMountpoint != "" {
-			err := openstack.AttachVolumeCinder(osProvider, volume.ID, o.attachCinder, o.attachCinderMountpoint)
+			serverID, err := resolveServer(serversMap, o.attachCinder)
+			if err != nil {
+				return err
+			}
+			err = openstack.AttachVolumeCinder(osProvider, volume.ID, serverID, o.attachCinderMountpoint)
 			if err != nil {
 				return err
 			}
 		}
+		// attach via Nova
 		if o.attachNova != "" {
-			err := openstack.AttachVolumeNova(osProvider, volume.ID, o.attachNova)
+			serverID, err := resolveServer(serversMap, o.attachNova)
+			if err != nil {
+				return err
+			}
+			err = openstack.AttachVolumeNova(osProvider, volume.ID, serverID)
 			if err != nil {
 				return err
 			}
 		}
+		// detach via Cinder
 		if o.detachCinder {
 			err := openstack.DetachVolumeCinder(osProvider, volume.ID, o.force)
 			if err != nil {
 				return err
 			}
 		}
+		// detach via Nova
 		if o.detachNova {
 			uniqueServerIDs := map[string]bool{}
 			for _, srv := range srvs {
@@ -187,3 +210,32 @@ func (o *VolumesFixOptions) runWithConfig(context string) error {
 
 	return nil
 }
+
+func resolveVolume(volumes map[string]volumes.Volume, idOrName string) (string, error) {
+	// volumeIDs have a length of 36
+	if len(idOrName) == 36 {
+		return idOrName, nil
+	}
+
+	for _, v := range volumes {
+		if v.Name == idOrName {
+			return v.ID, nil
+		}
+	}
+	return "", fmt.Errorf("could not find volume with id or name: %s", idOrName)
+}
+
+func resolveServer(serversMap map[string]servers.Server, idOrName string) (string, error) {
+	// serverIDs have a length of 36
+	if len(idOrName) == 36 {
+		return idOrName, nil
+	}
+
+	for _, s := range serversMap {
+		if s.Name == idOrName {
+			return s.ID, nil
+		}
+	}
+	return "", fmt.Errorf("could not find server with id or name: %s", idOrName)
+}
+

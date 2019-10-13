@@ -1,3 +1,4 @@
+
 package cmd
 
 import (
@@ -30,6 +31,7 @@ type VolumesOptions struct {
 	exporter   string
 	output     string
 	noHeader   bool
+	columns    string
 	args       []string
 	onlyBroken bool
 	debug      bool
@@ -75,12 +77,17 @@ func NewCmdVolumes(streams genericclioptions.IOStreams) *cobra.Command {
 	cmd.Flags().StringVar(&o.states, "states", "", "filter by states, default list all")
 	cmd.Flags().StringVarP(&o.exporter, "exporter", "e", "stdout", "stdout, mm or multiple (comma-separated)")
 	cmd.Flags().StringVarP(&o.output, "output", "o", "markdown", "markdown or raw")
-	cmd.Flags().BoolVarP(&o.debug, "debug", "", false, "debug prints more columns")
+	cmd.Flags().BoolVarP(&o.debug, "debug", "", false, "debug prints debug columns, equivalent to --columns=DEBUG")
 	cmd.Flags().BoolVarP(&o.onlyBroken, "only-broken", "", false, "only show disks which are broken/out of sync")
 	cmd.Flags().BoolVarP(&o.noHeader, "no-headers", "", false, "hide table headers")
+	cmd.Flags().StringVar(&o.columns, "columns", strings.Join(defaultHeaders, ","), fmt.Sprintf("column-separated list of headers to show, if set to DEBUG a special debug subset of columns is shown. The following columns are availble: %v", allHeaders))
 	o.configFlags.AddFlags(cmd.Flags())
 	return cmd
 }
+
+var defaultHeaders = []string{"PVC", "POD", "POD_NODE", "POD_STATUS", "CINDER_NAME", "SIZE", "CINDER_ID", "CINDER_SERVER", "CINDER_SERVER_ID", "CINDER_STATUS"}
+var debugHeaders = []string{"PVC", "PV", "POD", "POD_NODE", "POD_STATUS", "CINDER_NAME", "CINDER_ID", "CINDER_SERVER", "CINDER_SERVER_ID", "CINDER_STATUS", "NOVA_SERVER", "NOVA_SERVER_ID", "NOTE"}
+var allHeaders = []string{"CLUSTER", "PVC", "PV", "POD", "POD_NODE", "POD_STATUS", "CINDER_NAME", "SIZE", "CINDER_ID", "CINDER_SERVER", "CINDER_SERVER_ID", "CINDER_STATUS", "NOVA_SERVER", "NOVA_SERVER_ID", "NOTE"}
 
 // Complete sets als necessary fields in VolumeOptions
 func (o *VolumesOptions) Complete(cmd *cobra.Command, args []string) error {
@@ -90,6 +97,9 @@ func (o *VolumesOptions) Complete(cmd *cobra.Command, args []string) error {
 	o.rawConfig, err = o.configFlags.ToRawKubeConfigLoader().RawConfig()
 	if err != nil {
 		return err
+	}
+	if o.debug || o.columns == "DEBUG" {
+		o.columns = strings.Join(debugHeaders, ",")
 	}
 	return nil
 }
@@ -118,13 +128,7 @@ func (o *VolumesOptions) Run() error {
 	// multiple tenants
 	// disable header here and print them once if required
 	if !o.noHeader {
-		var header []string
-		if o.debug {
-			header = volumeDebugHeaders
-		} else {
-			header = volumeHeaders
-		}
-		output, err := output.ConvertToTable(output.Table{header, [][]string{}, []int{0, 1}, o.output})
+		output, err := output.ConvertToTable(output.Table{strings.Split(o.columns, ","), [][]string{}, []int{0, 1}, o.output})
 		if err != nil {
 			return fmt.Errorf("error creating output: %v", err)
 		}
@@ -222,22 +226,30 @@ func (o *VolumesOptions) runWithConfig(context string) error {
 	return nil
 }
 
-var volumeHeaders = []string{"CLUSTER", "PVC", "POD", "POD_NODE", "POD_STATUS", "CINDER_NAME", "SIZE", "CINDER_ID", "CINDER_SERVER", "CINDER_SERVER_ID", "CINDER_STATUS"}
-var volumeDebugHeaders = []string{"CLUSTER", "PVC", "PV", "POD", "POD_NODE", "POD_STATUS", "CINDER_NAME", "SIZE", "CINDER_ID", "CINDER_SERVER", "CINDER_SERVER_ID", "CINDER_STATUS", "NOVA_SERVER", "NOVA_SERVER_ID", "NOTE"}
-
 func (o *VolumesOptions) getPrettyVolumeList(context string, pvs map[string]v1.PersistentVolume, podMap map[string][]v1.Pod, volumes map[string]volumes.Volume, server map[string]servers.Server, attachmentsMap map[string]*openstack.NovaVolumeAttachments) (string, error) {
 
 	var header []string
 	if !o.noHeader {
-		if o.debug {
-			header = volumeDebugHeaders
-		} else {
-			header = volumeHeaders
-		}
+		header = strings.Split(o.columns, ",")
 	}
 
-	var lines [][]string
+	linesAllColumns := map[string]map[string]string{}
 	for _, v := range volumes {
+
+		// Skip disk if it's status doesn't match one of the states defined in the state flag
+		if o.states != "" {
+			var matchesStates bool
+			for _, state := range strings.Split(o.states, ",") {
+				if v.Status == state {
+					matchesStates = true
+					break
+				}
+			}
+			if !matchesStates {
+				continue
+			}
+		}
+
 		var cinderServers []string
 		var cinderServerIDs []string
 		var novaServers []string
@@ -282,66 +294,67 @@ func (o *VolumesOptions) getPrettyVolumeList(context string, pvs map[string]v1.P
 			}
 		}
 
-		matchesStates := false
-		for _, state := range strings.Split(o.states, ",") {
-			if v.Status == state {
-				matchesStates = true
-				break
-			}
-		}
-
 		var notes []string
-		showDiskIfOnlyBroken := false
 		// check error states
 		if overallNovaAttachmentCount >= 2 {
-			showDiskIfOnlyBroken = true
 			notes = append(notes, "multiple attachments")
 		}
 		if podNode != "-" && podStatus != "Completed" && !strings.Contains(strings.Join(cinderServers, " "), podNode) {
-			showDiskIfOnlyBroken = true
 			notes = append(notes, "pod != cinder server")
 		}
 		if podNode != "-" && podStatus != "Completed" && !strings.Contains(strings.Join(novaServers, " "), podNode) {
-			showDiskIfOnlyBroken = true
 			notes = append(notes, "pod != nova server")
 		}
 		if !strings.Contains(strings.Join(novaServers, " "), strings.Join(cinderServers, " ")) {
-			showDiskIfOnlyBroken = true
 			notes = append(notes, "nova != cinder server")
 		}
 		if v.Status == "available" && (len(novaServers) > 0 || len(cinderServers) > 0) {
-			showDiskIfOnlyBroken = true
 			notes = append(notes, "available but attached")
 		}
 		if v.Status == "available" && podName != "-" && podStatus != "Completed" {
-			showDiskIfOnlyBroken = true
 			notes = append(notes, fmt.Sprintf("available but pod %q", podStatus))
 		}
 		if v.Status == "in-use" && (len(novaServers) == 0 || len(cinderServers) == 0) {
-			showDiskIfOnlyBroken = true
 			notes = append(notes, "in-use but not attached")
 		}
 		if strings.Contains(strings.Join(cinderServers, " "), "not found") {
-			showDiskIfOnlyBroken = true
 			notes = append(notes, "attached server not found")
 		}
 		if pvClaim == "-" && pvName == "-" && podName == "-" && strings.HasPrefix(v.Name, "kubernetes-dynamic-pvc") {
-			showDiskIfOnlyBroken = true
 			notes = append(notes, "kubernetes disk has no pv/pvc/pod")
 		}
 		note := strings.Join(notes, ", ")
 
-		if (!o.onlyBroken || showDiskIfOnlyBroken) && (matchesStates || o.states == "") {
-			if o.debug {
-				lines = append(lines, []string{context, pvClaim, pvName, podName, podNode, podStatus,
-					v.Name, fmt.Sprintf("%d", v.Size), v.ID, strings.Join(cinderServers, " "), strings.Join(cinderServerIDs, " "), v.Status,
-					strings.Join(novaServers, " "), strings.Join(novaServerIDs, " "), note,
-				})
-			} else {
-				lines = append(lines, []string{context, pvClaim, podName, podNode, podStatus,
-					v.Name, fmt.Sprintf("%d", v.Size), v.ID, strings.Join(cinderServers, " "), strings.Join(cinderServerIDs, " "), v.Status,
-				})
+		lineAllColumns := map[string]string{}
+		// var allHeaders = []string{"CLUSTER", "PVC", "PV", "POD", "POD_NODE", "POD_STATUS", "CINDER_NAME", "SIZE", "CINDER_ID", "CINDER_SERVER", "CINDER_SERVER_ID", "CINDER_STATUS", "NOVA_SERVER", "NOVA_SERVER_ID", "NOTE"
+		lineAllColumns["CLUSTER"] = context
+		lineAllColumns["PVC"] = pvClaim
+		lineAllColumns["PV"] = pvName
+		lineAllColumns["POD"] = podName
+		lineAllColumns["POD_NODE"] = podNode
+		lineAllColumns["POD_STATUS"] = podStatus
+		lineAllColumns["CINDER_NAME"] = v.Name
+		lineAllColumns["SIZE"] = fmt.Sprintf("%d", v.Size)
+		lineAllColumns["CINDER_ID"] = v.ID
+		lineAllColumns["CINDER_SERVER"] = strings.Join(cinderServers, " ")
+		lineAllColumns["CINDER_SERVER_ID"] = strings.Join(cinderServerIDs, " ")
+		lineAllColumns["CINDER_STATUS"] = v.Status
+		lineAllColumns["NOVA_SERVER"] = strings.Join(novaServers, " ")
+		lineAllColumns["NOVA_SERVER_ID"] = strings.Join(novaServerIDs, " ")
+		lineAllColumns["NOTE"] = note
+
+		linesAllColumns[v.ID] = lineAllColumns
+	}
+
+	var lines [][]string
+	for _, allColumns := range linesAllColumns {
+		_, containsNote := allColumns["NOTE"]
+		if !o.onlyBroken || containsNote {
+			var lineColumns []string
+			for _, column := range strings.Split(o.columns, ",") {
+				lineColumns = append(lineColumns, allColumns[column])
 			}
+			lines = append(lines, lineColumns)
 		}
 	}
 	if len(lines) > 0 {
