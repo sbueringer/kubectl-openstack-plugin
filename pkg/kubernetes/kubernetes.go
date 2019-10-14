@@ -120,20 +120,17 @@ func GetMatchingContexts(config api.Config, context string) []string {
 	return ctxs
 }
 
-func FindNotEvictedPod(pods []v1.Pod) v1.Pod {
-	if len(pods) == 1 {
-		return pods[0]
-	}
-
+func FindNotEvictedPods(pods []v1.Pod) []v1.Pod {
+	var notEvictedPods []v1.Pod
 	for _, p := range pods {
-		if GetPodStatus(p) != "Evicted" {
-			return p
+		if GetPodStatus(&p) != "Evicted" {
+			notEvictedPods = append(notEvictedPods, p)
 		}
 	}
-	return pods[1]
+	return notEvictedPods
 }
 
-func GetPodStatus(pod v1.Pod) string {
+func GetPodStatus(pod *v1.Pod) string {
 	if pod.Status.Phase == v1.PodFailed && pod.Status.Reason == "Evicted" {
 		return "Evicted"
 	}

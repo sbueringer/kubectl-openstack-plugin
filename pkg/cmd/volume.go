@@ -1,4 +1,3 @@
-
 package cmd
 
 import (
@@ -233,7 +232,7 @@ func (o *VolumesOptions) getPrettyVolumeList(context string, pvs map[string]v1.P
 		header = strings.Split(o.columns, ",")
 	}
 
-	linesAllColumns := map[string]map[string]string{}
+	linesAllColumns := []map[string]string{}
 	for _, v := range volumes {
 
 		// Skip disk if it's status doesn't match one of the states defined in the state flag
@@ -280,70 +279,22 @@ func (o *VolumesOptions) getPrettyVolumeList(context string, pvs map[string]v1.P
 		}
 		pvName := "-"
 		pvClaim := "-"
-		podName := "-"
-		podNode := "-"
-		podStatus := "-"
+		var pods []v1.Pod
 		if pv, ok := pvs[v.ID]; ok {
 			pvName = pv.Name
 			pvClaim = fmt.Sprintf("%s/%s", pv.Spec.ClaimRef.Namespace, pv.Spec.ClaimRef.Name)
-			if pods, ok := podMap[pvClaim]; ok {
-				pod := kubernetes.FindNotEvictedPod(pods)
-				podName = pod.Name
-				podStatus = kubernetes.GetPodStatus(pod)
-				podNode = pod.Spec.NodeName
+			if allPods, ok := podMap[pvClaim]; ok {
+				pods = kubernetes.FindNotEvictedPods(allPods)
 			}
 		}
 
-		var notes []string
-		// check error states
-		if overallNovaAttachmentCount >= 2 {
-			notes = append(notes, "multiple attachments")
+		if len(pods) == 0 {
+			linesAllColumns = append(linesAllColumns, createLine(v, context, pvClaim, pvName, nil, overallNovaAttachmentCount, cinderServers, cinderServerIDs, novaServers, novaServerIDs))
+		} else {
+			for _, pod := range pods {
+				linesAllColumns = append(linesAllColumns, createLine(v, context, pvClaim, pvName, &pod, overallNovaAttachmentCount, cinderServers, cinderServerIDs, novaServers, novaServerIDs))
+			}
 		}
-		if podNode != "-" && podStatus != "Completed" && !strings.Contains(strings.Join(cinderServers, " "), podNode) {
-			notes = append(notes, "pod != cinder server")
-		}
-		if podNode != "-" && podStatus != "Completed" && !strings.Contains(strings.Join(novaServers, " "), podNode) {
-			notes = append(notes, "pod != nova server")
-		}
-		if !strings.Contains(strings.Join(novaServers, " "), strings.Join(cinderServers, " ")) {
-			notes = append(notes, "nova != cinder server")
-		}
-		if v.Status == "available" && (len(novaServers) > 0 || len(cinderServers) > 0) {
-			notes = append(notes, "available but attached")
-		}
-		if v.Status == "available" && podName != "-" && podStatus != "Completed" {
-			notes = append(notes, fmt.Sprintf("available but pod %q", podStatus))
-		}
-		if v.Status == "in-use" && (len(novaServers) == 0 || len(cinderServers) == 0) {
-			notes = append(notes, "in-use but not attached")
-		}
-		if strings.Contains(strings.Join(cinderServers, " "), "not found") {
-			notes = append(notes, "attached server not found")
-		}
-		if pvClaim == "-" && pvName == "-" && podName == "-" && strings.HasPrefix(v.Name, "kubernetes-dynamic-pvc") {
-			notes = append(notes, "kubernetes disk has no pv/pvc/pod")
-		}
-		note := strings.Join(notes, ", ")
-
-		lineAllColumns := map[string]string{}
-		// var allHeaders = []string{"CLUSTER", "PVC", "PV", "POD", "POD_NODE", "POD_STATUS", "CINDER_NAME", "SIZE", "CINDER_ID", "CINDER_SERVER", "CINDER_SERVER_ID", "CINDER_STATUS", "NOVA_SERVER", "NOVA_SERVER_ID", "NOTE"
-		lineAllColumns["CLUSTER"] = context
-		lineAllColumns["PVC"] = pvClaim
-		lineAllColumns["PV"] = pvName
-		lineAllColumns["POD"] = podName
-		lineAllColumns["POD_NODE"] = podNode
-		lineAllColumns["POD_STATUS"] = podStatus
-		lineAllColumns["CINDER_NAME"] = v.Name
-		lineAllColumns["SIZE"] = fmt.Sprintf("%d", v.Size)
-		lineAllColumns["CINDER_ID"] = v.ID
-		lineAllColumns["CINDER_SERVER"] = strings.Join(cinderServers, " ")
-		lineAllColumns["CINDER_SERVER_ID"] = strings.Join(cinderServerIDs, " ")
-		lineAllColumns["CINDER_STATUS"] = v.Status
-		lineAllColumns["NOVA_SERVER"] = strings.Join(novaServers, " ")
-		lineAllColumns["NOVA_SERVER_ID"] = strings.Join(novaServerIDs, " ")
-		lineAllColumns["NOTE"] = note
-
-		linesAllColumns[v.ID] = lineAllColumns
 	}
 
 	var lines [][]string
@@ -361,4 +312,67 @@ func (o *VolumesOptions) getPrettyVolumeList(context string, pvs map[string]v1.P
 		return output.ConvertToTable(output.Table{header, lines, []int{0, 1}, o.output})
 	}
 	return "", nil
+}
+
+func createLine(v volumes.Volume, context, pvClaim string, pvName string, pod *v1.Pod, overallNovaAttachmentCount int, cinderServers []string, cinderServerIDs []string, novaServers []string, novaServerIDs []string) map[string]string {
+
+	podName := "-"
+	podStatus := "-"
+	podNode := "-"
+	if pod != nil {
+		podName = pod.Name
+		podStatus = kubernetes.GetPodStatus(pod)
+		podNode = pod.Spec.NodeName
+	}
+
+	var notes []string
+	// check error states
+	if overallNovaAttachmentCount >= 2 {
+		notes = append(notes, "multiple attachments")
+	}
+	if podNode != "-" && podStatus != "Completed" && !strings.Contains(strings.Join(cinderServers, " "), podNode) {
+		notes = append(notes, "pod != cinder server")
+	}
+	if podNode != "-" && podStatus != "Completed" && !strings.Contains(strings.Join(novaServers, " "), podNode) {
+		notes = append(notes, "pod != nova server")
+	}
+	if !strings.Contains(strings.Join(novaServers, " "), strings.Join(cinderServers, " ")) {
+		notes = append(notes, "nova != cinder server")
+	}
+	if v.Status == "available" && (len(novaServers) > 0 || len(cinderServers) > 0) {
+		notes = append(notes, "available but attached")
+	}
+	if v.Status == "available" && podName != "-" && podStatus != "Completed" {
+		notes = append(notes, fmt.Sprintf("available but pod %q", podStatus))
+	}
+	if v.Status == "in-use" && (len(novaServers) == 0 || len(cinderServers) == 0) {
+		notes = append(notes, "in-use but not attached")
+	}
+	if strings.Contains(strings.Join(cinderServers, " "), "not found") {
+		notes = append(notes, "attached server not found")
+	}
+	if pvClaim == "-" && pvName == "-" && podName == "-" && strings.HasPrefix(v.Name, "kubernetes-dynamic-pvc") {
+		notes = append(notes, "kubernetes disk has no pv/pvc/pod")
+	}
+	note := strings.Join(notes, ", ")
+
+	lineAllColumns := map[string]string{}
+	// var allHeaders = []string{"CLUSTER", "PVC", "PV", "POD", "POD_NODE", "POD_STATUS", "CINDER_NAME", "SIZE", "CINDER_ID", "CINDER_SERVER", "CINDER_SERVER_ID", "CINDER_STATUS", "NOVA_SERVER", "NOVA_SERVER_ID", "NOTE"
+	lineAllColumns["CLUSTER"] = context
+	lineAllColumns["PVC"] = pvClaim
+	lineAllColumns["PV"] = pvName
+	lineAllColumns["POD"] = podName
+	lineAllColumns["POD_NODE"] = podNode
+	lineAllColumns["POD_STATUS"] = podStatus
+	lineAllColumns["CINDER_NAME"] = v.Name
+	lineAllColumns["SIZE"] = fmt.Sprintf("%d", v.Size)
+	lineAllColumns["CINDER_ID"] = v.ID
+	lineAllColumns["CINDER_SERVER"] = strings.Join(cinderServers, " ")
+	lineAllColumns["CINDER_SERVER_ID"] = strings.Join(cinderServerIDs, " ")
+	lineAllColumns["CINDER_STATUS"] = v.Status
+	lineAllColumns["NOVA_SERVER"] = strings.Join(novaServers, " ")
+	lineAllColumns["NOVA_SERVER_ID"] = strings.Join(novaServerIDs, " ")
+	lineAllColumns["NOTE"] = note
+
+	return lineAllColumns
 }
