@@ -80,13 +80,13 @@ func NewCmdVolumes(streams genericclioptions.IOStreams) *cobra.Command {
 	cmd.Flags().BoolVarP(&o.debug, "debug", "", false, "debug prints debug columns, equivalent to --columns=DEBUG")
 	cmd.Flags().BoolVarP(&o.onlyBroken, "only-broken", "", false, "only show disks which are broken/out of sync")
 	cmd.Flags().BoolVarP(&o.noHeader, "no-headers", "", false, "hide table headers")
-	cmd.Flags().StringVar(&o.columns, "columns", strings.Join(defaultHeaders, ","), fmt.Sprintf("column-separated list of headers to show, if set to DEBUG a special debug subset of columns is shown. The following columns are availble: %v", allHeaders))
+	cmd.Flags().StringVar(&o.columns, "columns", strings.Join(defaultHeaders, ","), fmt.Sprintf("column-separated list of headers to show, if set to DEBUG a special debug subset of columns is shown (%v). The following columns are availble: %v", debugHeaders, allHeaders))
 	o.configFlags.AddFlags(cmd.Flags())
 	return cmd
 }
 
 var defaultHeaders = []string{"PVC", "POD", "POD_NODE", "POD_STATUS", "CINDER_NAME", "SIZE", "CINDER_ID", "CINDER_SERVER", "CINDER_SERVER_ID", "CINDER_STATUS"}
-var debugHeaders = []string{"PVC", "PV", "POD", "POD_NODE", "POD_STATUS", "CINDER_NAME", "CINDER_ID", "CINDER_SERVER", "CINDER_SERVER_ID", "CINDER_STATUS", "NOVA_SERVER", "NOVA_SERVER_ID", "NOTE"}
+var debugHeaders = []string{"PVC", "PV", "POD", "POD_NODE", "POD_STATUS", "CINDER_NAME", "CINDER_ID", "CINDER_SERVER", "CINDER_STATUS", "NOVA_SERVER", "NOTE"}
 var allHeaders = []string{"CLUSTER", "PVC", "PV", "POD", "POD_NODE", "POD_STATUS", "CINDER_NAME", "SIZE", "CINDER_ID", "CINDER_SERVER", "CINDER_SERVER_ID", "CINDER_STATUS", "NOVA_SERVER", "NOVA_SERVER_ID", "NOTE"}
 
 // Complete sets als necessary fields in VolumeOptions
