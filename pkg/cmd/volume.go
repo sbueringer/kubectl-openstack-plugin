@@ -290,7 +290,7 @@ func (o *VolumesOptions) getPrettyVolumeList(context string, pvs map[string]v1.P
 			}
 			if o.namespaces != "" {
 				var matchesNamespaces bool
-				for _, namespace := range strings.Split(o.states, ",") {
+				for _, namespace := range strings.Split(o.namespaces, ",") {
 					if pv.Spec.ClaimRef.Namespace == namespace {
 						matchesNamespaces = true
 						break
