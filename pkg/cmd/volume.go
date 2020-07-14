@@ -26,6 +26,7 @@ type VolumesOptions struct {
 	rawConfig api.Config
 
 	states string
+	namespaces string
 
 	exporter   string
 	output     string
@@ -74,12 +75,13 @@ func NewCmdVolumes(streams genericclioptions.IOStreams) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&o.states, "states", "", "filter by states, default list all")
+	cmd.Flags().StringVar(&o.namespaces, "namespaces", "n", "filter by Kubernetes namespaces, default list all")
 	cmd.Flags().StringVarP(&o.exporter, "exporter", "e", "stdout", "stdout, mm or multiple (comma-separated)")
 	cmd.Flags().StringVarP(&o.output, "output", "o", "markdown", "markdown or raw")
 	cmd.Flags().BoolVarP(&o.debug, "debug", "", false, "debug prints debug columns, equivalent to --columns=DEBUG")
 	cmd.Flags().BoolVarP(&o.onlyBroken, "only-broken", "", false, "only show disks which are broken/out of sync")
 	cmd.Flags().BoolVarP(&o.noHeader, "no-headers", "", false, "hide table headers")
-	cmd.Flags().StringVar(&o.columns, "columns", strings.Join(defaultHeaders, ","), fmt.Sprintf("column-separated list of headers to show, if set to DEBUG a special debug subset of columns is shown (%v). The following columns are availble: %v", debugHeaders, allHeaders))
+	cmd.Flags().StringVar(&o.columns, "columns", strings.Join(defaultHeaders, ","), fmt.Sprintf("column-separated list of headers to show, if set to DEBUG a special debug subset of columns is shown (%q). The following columns are available: %q", strings.Join(debugHeaders, ","), strings.Join(allHeaders, ",")))
 	o.configFlags.AddFlags(cmd.Flags())
 	return cmd
 }
@@ -286,6 +288,18 @@ func (o *VolumesOptions) getPrettyVolumeList(context string, pvs map[string]v1.P
 			if allPods, ok := podMap[pvClaim]; ok {
 				pods = kubernetes.FindNotEvictedPods(allPods)
 			}
+			if o.namespaces != "" {
+				var matchesNamespaces bool
+				for _, namespace := range strings.Split(o.states, ",") {
+					if pv.Spec.ClaimRef.Namespace == namespace {
+						matchesNamespaces = true
+						break
+					}
+				}
+				if !matchesNamespaces {
+					continue
+				}
+			}
 		}
 
 		if len(pods) == 0 {
@@ -309,7 +323,7 @@ func (o *VolumesOptions) getPrettyVolumeList(context string, pvs map[string]v1.P
 		}
 	}
 	if len(lines) > 0 {
-		return output.ConvertToTable(output.Table{header, lines, []int{0, 1}, o.output})
+		return output.ConvertToTable(output.Table{header, lines, []int{0, 1, 2}, o.output})
 	}
 	return "", nil
 }
@@ -357,7 +371,6 @@ func createLine(v volumes.Volume, context, pvClaim string, pvName string, pod *v
 	note := strings.Join(notes, ", ")
 
 	lineAllColumns := map[string]string{}
-	// var allHeaders = []string{"CLUSTER", "PVC", "PV", "POD", "POD_NODE", "POD_STATUS", "CINDER_NAME", "SIZE", "CINDER_ID", "CINDER_SERVER", "CINDER_SERVER_ID", "CINDER_STATUS", "NOVA_SERVER", "NOVA_SERVER_ID", "NOTE"
 	lineAllColumns["CLUSTER"] = context
 	lineAllColumns["PVC"] = pvClaim
 	lineAllColumns["PV"] = pvName
