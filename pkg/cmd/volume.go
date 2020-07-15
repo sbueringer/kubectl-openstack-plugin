@@ -25,7 +25,7 @@ type VolumesOptions struct {
 
 	rawConfig api.Config
 
-	states string
+	states     string
 	namespaces string
 
 	exporter   string
@@ -75,7 +75,7 @@ func NewCmdVolumes(streams genericclioptions.IOStreams) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&o.states, "states", "", "filter by states, default list all")
-	cmd.Flags().StringVar(&o.namespaces, "namespaces", "n", "filter by Kubernetes namespaces, default list all")
+	cmd.Flags().StringVarP(&o.namespaces, "namespaces", "n", "", "filter by Kubernetes namespaces, default list all")
 	cmd.Flags().StringVarP(&o.exporter, "exporter", "e", "stdout", "stdout, mm or multiple (comma-separated)")
 	cmd.Flags().StringVarP(&o.output, "output", "o", "markdown", "markdown or raw")
 	cmd.Flags().BoolVarP(&o.debug, "debug", "", false, "debug prints debug columns, equivalent to --columns=DEBUG")
