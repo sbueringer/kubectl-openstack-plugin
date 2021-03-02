@@ -398,11 +398,11 @@ func DetachVolumeCinder(osProvider *gophercloud.ProviderClient, volumeID string,
 	var detach interface{}
 	if force {
 		detach = &cinderForceDetachVolume{
-			OsDetach: &cinderDetachment{},
+			OsDetach: &cinderDetachment{AttachmentID: volumeID},
 		}
 	} else {
 		detach = &cinderDetachVolume{
-			OsDetach: &cinderDetachment{},
+			OsDetach: &cinderDetachment{AttachmentID: volumeID},
 		}
 	}
 	resp, err := blockStorageClient.Post(url, detach, nil, &gophercloud.RequestOpts{OkCodes: []int{202}})
